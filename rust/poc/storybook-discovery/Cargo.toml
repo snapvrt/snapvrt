@@ -1,0 +1,12 @@
+[package]
+name = "poc-storybook-discovery"
+edition.workspace = true
+publish = false
+
+[dependencies]
+reqwest.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+clap.workspace = true
+anyhow.workspace = true
