@@ -50,7 +50,7 @@ rust/
     │   └── src/
     │       ├── main.rs
     │       ├── server.rs        # Axum endpoints (/screenshot/web, /screenshot/pdf, /health)
-    │       ├── browser.rs       # Chrome CDP connection (chromiumoxide)
+    │       ├── browser.rs       # Chrome CDP connection (see poc/cdp-raw)
     │       ├── tab_pool.rs      # Concurrent browser tab management
     │       ├── screenshot.rs    # Navigate, inject styles, wait for ready, capture
     │       └── pdf.rs           # PDF → PNG rendering (pdfium-render)
@@ -112,7 +112,7 @@ tracing = "0.1"
 
 ```
 snapvrt ──────────► snapvrt-wire ◄──────────── snapvrt-shot
-    (clap, bollard,     (serde)         (axum, chromiumoxide,
+    (clap, bollard,     (serde)         (axum, see poc/cdp-raw,
      reqwest, axum,                      pdfium-render)
      lopdf)                    ▲
                                │
@@ -294,7 +294,7 @@ Runs inside containers. Receives URLs, returns PNGs.
 | Module       | Responsibility                                                        |
 | ------------ | --------------------------------------------------------------------- |
 | `server`     | Axum HTTP endpoints (`/screenshot/web`, `/screenshot/pdf`, `/health`) |
-| `browser`    | Chrome CDP connection via chromiumoxide                               |
+| `browser`    | Chrome CDP connection (see poc/cdp-raw)                               |
 | `tab_pool`   | Manages N concurrent browser tabs                                     |
 | `screenshot` | Navigate, wait for ready, capture                                     |
 | `pdf`        | PDF rendering to PNG (pdfium-render)                                  |

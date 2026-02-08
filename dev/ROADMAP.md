@@ -4,25 +4,24 @@
 
 Minimal prototypes to validate core assumptions before building the full solution. Each PoC is a standalone Rust example or project — throwaway code that proves a capability works.
 
-### 0.1 Storybook 10 example project
+### 0.1 Storybook 10 example project ✅
 
 Create a minimal Storybook 10 project in `examples/storybook-basic/`. A few simple components with stories. This serves two purposes:
 
 - Validate the `index.json` API format assumed in the spec
 - Become the example project for snapvrt users later
 
-### 0.2 PoC: CDP screenshot capture
+### 0.2 PoC: CDP screenshot capture ✅
 
-Standalone Rust binary that:
+Three PoCs compared (`rust/poc/CDP-COMPARISON.md`):
 
-1. Connects to a running Chrome instance via CDP (chromiumoxide)
-2. Navigates to a URL passed as CLI arg
-3. Injects animation-disabling CSS
-4. Waits for ready (network idle + fonts + DOM stable)
-5. Screenshots `<body>` bounding box
-6. Saves PNG to disk
+- **chromiumoxide** — async/tokio, browser-pool for parallelism (multi-tab broken)
+- **headless_chrome** — sync, multi-tab works but ~4x slower due to mutex contention
+- **cdp-raw** — direct per-target WebSockets via tokio-tungstenite (**winner**)
 
-**Validates:** chromiumoxide API, ready detection strategy, screenshot cropping.
+cdp-raw gives true multi-tab parallelism in a single browser (~150 MB/tab vs ~1.1 GB/browser), using ~300 lines of custom CDP transport. Production `snapvrt-shot` will use this approach instead of chromiumoxide.
+
+**Validated:** CDP transport, ready detection (fonts + DOM stability), screenshot cropping, multi-tab parallelism, Chrome launch flags for background tab throttling.
 
 ### 0.3 PoC: Storybook source discovery
 

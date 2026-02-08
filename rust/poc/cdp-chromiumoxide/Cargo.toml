@@ -1,0 +1,11 @@
+[package]
+name = "poc-cdp-chromiumoxide"
+edition.workspace = true
+publish = false
+
+[dependencies]
+chromiumoxide.workspace = true
+tokio.workspace = true
+futures.workspace = true
+clap.workspace = true
+anyhow.workspace = true

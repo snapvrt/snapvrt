@@ -175,7 +175,7 @@ snapvrt-shot integration — PDF rendering is in-process alongside Chrome, no ex
 
 ```
 snapvrt-shot container image:
-  Chromium + chromiumoxide  → POST /screenshot/web
+  Chromium + CDP (see poc/cdp-raw)  → POST /screenshot/web
   libpdfium.so (~25MB) + pdfium-render  → POST /screenshot/pdf
 ```
 
