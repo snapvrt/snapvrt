@@ -1,0 +1,36 @@
+# Rust
+/target/
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Node (for npm packages)
+node_modules/
+packages/*/node_modules/
+*.log
+
+# Build artifacts
+dist/
+*.tar.gz
+*.zip
+
+# Test artifacts
+.snapvrt/current/
+.snapvrt/diff/
+.snapvrt/**/current/
+.snapvrt/**/diff/
+.snapvrt/report.html
+.snapvrt/service.pid
+.snapvrt/service.log
+
+# Environment
+.env
+.env.local
