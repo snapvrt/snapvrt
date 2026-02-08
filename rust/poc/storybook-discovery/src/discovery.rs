@@ -1,7 +1,23 @@
 use std::collections::HashMap;
 
-use anyhow::{Context, Result};
 use serde::Deserialize;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum DiscoveryError {
+    #[error("failed to fetch index.json from {url}")]
+    Fetch {
+        url: String,
+        #[source]
+        source: reqwest::Error,
+    },
+    #[error("failed to parse index.json from {url}")]
+    Parse {
+        url: String,
+        #[source]
+        source: reqwest::Error,
+    },
+}
 
 /// Raw Storybook index.json response.
 #[derive(Deserialize)]
@@ -34,16 +50,24 @@ pub struct Story {
 ///
 /// Filters out non-story entries (e.g. docs) and stories tagged with `snapvrt-skip`.
 /// Returns stories sorted by id for stable output.
-pub async fn discover(base_url: &str) -> Result<Vec<Story>> {
+pub async fn discover(base_url: &str) -> Result<Vec<Story>, DiscoveryError> {
     let base_url = base_url.trim_end_matches('/');
     let index_url = format!("{base_url}/index.json");
 
-    let index: IndexResponse = reqwest::get(&index_url)
+    let response = reqwest::get(&index_url)
         .await
-        .context("failed to fetch index.json")?
+        .map_err(|source| DiscoveryError::Fetch {
+            url: index_url.clone(),
+            source,
+        })?;
+
+    let index: IndexResponse = response
         .json()
         .await
-        .context("failed to parse index.json")?;
+        .map_err(|source| DiscoveryError::Parse {
+            url: index_url,
+            source,
+        })?;
 
     let mut stories: Vec<Story> = index
         .entries
