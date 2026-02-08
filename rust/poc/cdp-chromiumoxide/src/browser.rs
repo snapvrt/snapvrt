@@ -26,7 +26,8 @@ impl ManagedBrowser {
         // Each browser instance needs its own user data dir to avoid
         // Chrome's SingletonLock conflict when running multiple instances.
         let id = BROWSER_COUNTER.fetch_add(1, Ordering::Relaxed);
-        let data_dir = std::env::temp_dir().join(format!("chromiumoxide-{}-{id}", std::process::id()));
+        let data_dir =
+            std::env::temp_dir().join(format!("chromiumoxide-{}-{id}", std::process::id()));
 
         let (browser, mut handler) = Browser::launch(
             BrowserConfig::builder()

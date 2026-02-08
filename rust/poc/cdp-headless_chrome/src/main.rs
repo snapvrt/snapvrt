@@ -176,8 +176,7 @@ fn capture_story(
 
     // Navigate
     let nav_start = Instant::now();
-    tab.navigate_to(url)
-        .context("Failed to navigate to URL")?;
+    tab.navigate_to(url).context("Failed to navigate to URL")?;
     tab.wait_until_navigated()
         .context("Timed out waiting for navigation")?;
     let navigate_ms = nav_start.elapsed().as_millis();
@@ -325,28 +324,26 @@ fn run_parallel(concurrency: usize, width: u32, height: u32, scale: u32) -> Resu
     let capture_start = Instant::now();
 
     // Use std::thread::scope so threads can borrow tabs and queues.
-    let all_results: Vec<Vec<(String, Result<CaptureResult>)>> =
-        std::thread::scope(|s| {
-            let mut handles = Vec::with_capacity(concurrency);
-            for (tab_idx, stories) in tab_queues.into_iter().enumerate() {
-                let tab = &tabs[tab_idx];
-                handles.push(s.spawn(move || {
-                    let mut results = Vec::new();
-                    for story in stories {
-                        let url = format!("{STORYBOOK_BASE}{story}");
-                        let result = capture_story(tab, &url, width, height, scale);
-                        results.push((story.to_string(), result));
-                    }
-                    results
-                }));
-            }
-            handles.into_iter().map(|h| h.join().unwrap()).collect()
-        });
+    let all_results: Vec<Vec<(String, Result<CaptureResult>)>> = std::thread::scope(|s| {
+        let mut handles = Vec::with_capacity(concurrency);
+        for (tab_idx, stories) in tab_queues.into_iter().enumerate() {
+            let tab = &tabs[tab_idx];
+            handles.push(s.spawn(move || {
+                let mut results = Vec::new();
+                for story in stories {
+                    let url = format!("{STORYBOOK_BASE}{story}");
+                    let result = capture_story(tab, &url, width, height, scale);
+                    results.push((story.to_string(), result));
+                }
+                results
+            }));
+        }
+        handles.into_iter().map(|h| h.join().unwrap()).collect()
+    });
 
     let capture_wall_ms = capture_start.elapsed().as_millis();
 
-    let results: Vec<(String, Result<CaptureResult>)> =
-        all_results.into_iter().flatten().collect();
+    let results: Vec<(String, Result<CaptureResult>)> = all_results.into_iter().flatten().collect();
 
     // Write results and print timing.
     for (story, res) in &results {

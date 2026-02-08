@@ -21,8 +21,7 @@ impl Chrome {
     /// Parses `DevTools listening on ws://...` from stderr.
     pub async fn launch() -> Result<Self> {
         let id = BROWSER_COUNTER.fetch_add(1, Ordering::Relaxed);
-        let data_dir =
-            std::env::temp_dir().join(format!("cdp-raw-{}-{id}", std::process::id()));
+        let data_dir = std::env::temp_dir().join(format!("cdp-raw-{}-{id}", std::process::id()));
 
         let chrome_path = find_chrome()?;
 
@@ -56,13 +55,11 @@ impl Chrome {
 
         // Read stderr until we find the DevTools listening line.
         let debug_url: String = loop {
-            let line: Option<String> = tokio::time::timeout(
-                std::time::Duration::from_secs(10),
-                lines.next_line(),
-            )
-            .await
-            .context("Timed out waiting for Chrome DevTools URL")?
-            .context("Failed to read Chrome stderr")?;
+            let line: Option<String> =
+                tokio::time::timeout(std::time::Duration::from_secs(10), lines.next_line())
+                    .await
+                    .context("Timed out waiting for Chrome DevTools URL")?
+                    .context("Failed to read Chrome stderr")?;
 
             match line {
                 Some(ref text) if text.contains("DevTools listening on ") => {
@@ -112,10 +109,7 @@ impl Chrome {
             .context("No targetId in createTarget response")?
             .to_string();
 
-        let ws_url = format!(
-            "ws://127.0.0.1:{}/devtools/page/{target_id}",
-            self.port
-        );
+        let ws_url = format!("ws://127.0.0.1:{}/devtools/page/{target_id}", self.port);
 
         Ok((target_id, ws_url))
     }
@@ -167,8 +161,5 @@ fn find_chrome() -> Result<String> {
         }
     }
 
-    bail!(
-        "Chrome not found. Tried: {}",
-        candidates.join(", ")
-    )
+    bail!("Chrome not found. Tried: {}", candidates.join(", "))
 }

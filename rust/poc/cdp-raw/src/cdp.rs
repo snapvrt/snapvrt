@@ -93,11 +93,7 @@ impl CdpConnection {
     /// Checks the buffer first, then reads from WebSocket.
     pub async fn wait_event(&mut self, method: &str) -> Result<Value> {
         // Check buffer first.
-        if let Some(idx) = self
-            .event_buffer
-            .iter()
-            .position(|e| e.method == method)
-        {
+        if let Some(idx) = self.event_buffer.iter().position(|e| e.method == method) {
             return Ok(self.event_buffer.remove(idx).params);
         }
 

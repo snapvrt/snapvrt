@@ -167,12 +167,9 @@ pub async fn capture(conn: &mut CdpConnection, req: &CaptureRequest) -> Result<C
     // 5. Inject animation-disabling CSS via Runtime.evaluate
     let inject_css_js =
         INJECT_CSS_JS_TEMPLATE.replace("CSS_PLACEHOLDER", &css_for_template_literal());
-    conn.call(
-        "Runtime.evaluate",
-        json!({"expression": inject_css_js}),
-    )
-    .await
-    .context("Failed to inject CSS")?;
+    conn.call("Runtime.evaluate", json!({"expression": inject_css_js}))
+        .await
+        .context("Failed to inject CSS")?;
 
     // 6. Wait for ready (fonts + DOM stable)
     let ready_start = Instant::now();
