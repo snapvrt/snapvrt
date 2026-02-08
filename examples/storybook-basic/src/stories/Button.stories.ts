@@ -51,4 +51,5 @@ export const Small: Story = {
     size: 'small',
     label: 'Button',
   },
+  tags: ['snapvrt-skip']
 };
