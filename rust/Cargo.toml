@@ -21,3 +21,6 @@ anyhow = "1.0"
 base64 = "0.22"
 reqwest = { version = "0.13", features = ["json"] }
 thiserror = "2.0"
+image = "0.25"
+dify = "0.8"
+image-compare = "0.5"

@@ -63,7 +63,7 @@ rust/
             ├── engine.rs        # Pluggable comparison engine dispatch
             └── engines/         # Implementations (MIT-compatible only)
                 ├── mod.rs
-                ├── pixelmatch.rs
+                ├── dify.rs
                 ├── odiff.rs
                 └── imagemagick.rs
 ```
@@ -117,7 +117,7 @@ snapvrt ──────────► snapvrt-wire ◄───────�
      lopdf)                    ▲
                                │
                           snapvrt-spot
-                        (axum, pixelmatch)
+                        (axum, dify)
 ```
 
 Three binaries communicate via HTTP only. No direct Rust dependencies between `snapvrt`, `snapvrt-shot`, and `snapvrt-spot`. All three depend on `snapvrt-wire` for shared types.
@@ -127,7 +127,7 @@ Three binaries communicate via HTTP only. No direct Rust dependencies between `s
 | Crate          | Image                                                                                               |
 | -------------- | --------------------------------------------------------------------------------------------------- |
 | `snapvrt-shot` | `ghcr.io/snapvrt/shot`                                                                              |
-| `snapvrt-spot` | `ghcr.io/snapvrt/spot-pixelmatch`, `ghcr.io/snapvrt/spot-odiff`, `ghcr.io/snapvrt/spot-imagemagick` |
+| `snapvrt-spot` | `ghcr.io/snapvrt/spot-dify`, `ghcr.io/snapvrt/spot-odiff`, `ghcr.io/snapvrt/spot-imagemagick` |
 
 ## snapvrt Crate Modules
 
@@ -328,8 +328,8 @@ Runs inside containers. Receives two PNGs, returns match/score/diff.
 | Module     | Responsibility                                   |
 | ---------- | ------------------------------------------------ |
 | `server`   | Axum HTTP endpoint (`POST /diff`, `/health`)     |
-| `engine`   | Pluggable comparison engine dispatch             |
-| `engines/` | Implementations (pixelmatch, odiff, imagemagick) |
+| `engine`   | Pluggable comparison engine dispatch      |
+| `engines/` | Implementations (dify, odiff, imagemagick) |
 
 ### Pluggable Engines
 
@@ -343,13 +343,13 @@ pub trait DiffEngine: Send + Sync {
 
 **Bundled engines (MIT-compatible):**
 
-| Engine        | License    | Notes                      |
-| ------------- | ---------- | -------------------------- |
-| `pixelmatch`  | ISC        | Default, fast, pixel-level |
-| `odiff`       | MIT        | SIMD-optimized, very fast  |
-| `imagemagick` | Apache-2.0 | Multiple algorithms        |
+| Engine        | License    | Notes                                       |
+| ------------- | ---------- | ------------------------------------------- |
+| `dify`        | MIT        | Default, YIQ perceptual + anti-aliasing     |
+| `odiff`       | MIT        | SIMD-optimized, very fast                   |
+| `imagemagick` | Apache-2.0 | Multiple algorithms                         |
 
-Engine selected via environment: `SNAPVRT_DIFF_ENGINE=pixelmatch`
+Engine selected via environment: `SNAPVRT_DIFF_ENGINE=dify`
 
 **External engines:** Users can configure any container image that implements the `POST /diff` protocol (see [004-protocols.md](004-protocols.md#spot-protocol)).
 
@@ -421,7 +421,7 @@ See [004-protocols.md](004-protocols.md) for the spot HTTP protocol.
 │  │ Container Manager                                                    │  │
 │  │                                                                      │  │
 │  │  ┌─────────────────────┐  ┌─────────────────────┐                    │  │
-│  │  │ shot (Chrome + PDF) │  │ spot (pixelmatch)   │                    │  │
+│  │  │ shot (Chrome + PDF) │  │ spot (dify)         │                    │  │
 │  │  │ POST /screenshot/*  │  │ POST /diff          │                    │  │
 │  │  └─────────────────────┘  └─────────────────────┘                    │  │
 │  │                                                                      │  │
@@ -442,7 +442,7 @@ The service mode architecture (runtime diagrams above) remains the design target
 
 All code in the main snapvrt repository is MIT licensed.
 
-Only MIT-compatible diff engines are bundled (pixelmatch/ISC, odiff/MIT, imagemagick/Apache-2.0). Third-party engines (like dssim/AGPL-3.0) are maintained in separate repositories and configured via:
+Only MIT-compatible diff engines are bundled (dify/MIT, odiff/MIT, imagemagick/Apache-2.0). Third-party engines (like dssim/AGPL-3.0) are maintained in separate repositories and configured via:
 
 ```toml
 [diff]

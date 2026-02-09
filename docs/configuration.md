@@ -13,7 +13,7 @@
 # Diff engine
 # ─────────────────────────────────────────────────────────
 [diff]
-engine = "pixelmatch"   # pixelmatch (default), odiff, imagemagick
+engine = "dify"         # dify (default), odiff, imagemagick
 threshold = 0.0001
 
 # ─────────────────────────────────────────────────────────
@@ -59,7 +59,7 @@ exclude_tags = ["snapvrt-skip"]     # Stories to skip
 
 | Option                    | Default        | Description                                        |
 | ------------------------- | -------------- | -------------------------------------------------- |
-| `diff.engine`             | `"pixelmatch"` | Diff engine (`pixelmatch`, `odiff`, `imagemagick`) |
+| `diff.engine`             | `"dify"`       | Diff engine (`dify`, `odiff`, `imagemagick`)       |
 | `diff.threshold`          | `0.0001`       | Acceptable difference threshold                    |
 | `workers.count`           | `1`            | Number of worker containers                        |
 | `workers.tabs_per_worker` | `4`            | Concurrent browser tabs per worker                 |

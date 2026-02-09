@@ -23,7 +23,7 @@ cdp-raw gives true multi-tab parallelism in a single browser (~150 MB/tab vs ~1.
 
 **Validated:** CDP transport, ready detection (fonts + DOM stability), screenshot cropping, multi-tab parallelism, Chrome launch flags for background tab throttling.
 
-### 0.3 PoC: Storybook source discovery
+### 0.3 PoC: Storybook source discovery ✅
 
 Standalone Rust binary that:
 
@@ -36,16 +36,19 @@ Run against the example project from 0.1.
 
 **Validates:** Storybook 10 index.json format, story filtering logic.
 
-### 0.4 PoC: Image comparison (pixelmatch)
+### 0.4 PoC: Image diff engine comparison ✅
 
-Standalone Rust binary that:
+Compared three diff engines (`rust/poc/image-diff/`):
 
-1. Takes two PNG file paths as args
-2. Runs pixelmatch comparison
-3. Outputs match/score
-4. Writes diff PNG if mismatched
+| Engine   | Crate           | Score (4a→4b) | Time   | Anti-alias |
+| -------- | --------------- | ------------- | ------ | ---------- |
+| **dify** | `dify`          | 0.032         | 44ms   | yes        |
+| pixel    | (custom)        | 0.057         | 13ms   | no         |
+| ssim     | `image-compare` | 0.167         | 248ms  | no         |
 
-**Validates:** pixelmatch Rust bindings (or WASM/FFI approach), diff image generation.
+**Winner: dify** — YIQ perceptual pixel diff (same algorithm as pixelmatch) with anti-aliasing detection. MIT licensed, pure Rust, no FFI/WASM needed.
+
+**Validates:** diff engine selection, `DiffEngine` trait design, diff image generation.
 
 ### Outcome
 
@@ -59,7 +62,7 @@ Build the real crates based on validated PoCs.
 
 - `snapvrt-wire` — shared types (`Viewport`, `Png`, `CompareResult`, `DiffResult`, protocol constants)
 - `snapvrt-shot` — HTTP server wrapping the CDP screenshot PoC (web only, PDF later)
-- `snapvrt-spot` — HTTP server wrapping the pixelmatch PoC
+- `snapvrt-spot` — HTTP server wrapping the dify PoC
 - Docker images for both
 
 **Milestone:** Can `POST /screenshot/web` to a container and get a PNG back. Can `POST /diff` with two PNGs and get a score.

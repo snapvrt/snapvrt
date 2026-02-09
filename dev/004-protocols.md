@@ -261,14 +261,14 @@ Metadata in headers, optional diff PNG in body:
 HTTP 200 OK
 X-Match: true
 X-Score: 0.0
-X-Engine: pixelmatch
+X-Engine: dify
 Content-Length: 0
 
 # Mismatch (diff PNG in body)
 HTTP 200 OK
 X-Match: false
 X-Score: 0.00042
-X-Engine: pixelmatch
+X-Engine: dify
 Content-Type: image/png
 
 <raw diff PNG bytes>
@@ -288,7 +288,7 @@ Scores are engine-specific. No normalization — different engines have fundamen
 Threshold config is per-engine with recommended defaults:
 
 ```toml
-# pixelmatch: fraction of differing pixels (0.0-1.0)
+# dify: fraction of differing pixels (0.0-1.0)
 threshold = 0.001
 
 # dssim: perceptual distance (0 = identical, unbounded)
