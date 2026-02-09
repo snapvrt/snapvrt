@@ -1,6 +1,6 @@
 # Architecture Decisions
 
-Status: Complete (17/17 resolved) | Date: 2026-02-08
+Status: Complete (18/18 resolved) | Date: 2026-02-09
 
 > Part of [snapvrt specification](README.md)
 
@@ -236,6 +236,32 @@ Define `pub struct Png(pub Vec<u8>)` in `snapvrt-wire/types.rs`. Prevents accide
 **Resolves:** #16
 
 No normalization — different engines have fundamentally different scales. See [004-protocols.md](004-protocols.md#score-semantics) for details.
+
+---
+
+### Default diff engine: dify
+
+**Resolves:** diff engine selection (PoC 0.4)
+
+Compared three engines in `rust/poc/image-diff/`:
+
+| Engine   | Crate           | Score (4a→4b) | Time  | Anti-alias |
+| -------- | --------------- | ------------- | ----- | ---------- |
+| **dify** | `dify`          | 0.032         | 44ms  | yes        |
+| pixel    | (custom)        | 0.057         | 13ms  | no         |
+| ssim     | `image-compare` | 0.167         | 248ms | no         |
+
+**Selected dify** because:
+
+1. Anti-aliasing detection is essential for screenshot comparison — without it, subpixel font rendering differences across environments cause false positives
+2. YIQ perceptual color space matches human perception better than raw RGBA Euclidean distance
+3. Same algorithm as pixelmatch (the original design choice), implemented natively in Rust — no FFI/WASM needed
+4. MIT licensed (resolves the ISC license concern with the JS pixelmatch library)
+5. 44ms is fast enough — browser rendering and screenshot I/O dominate real workloads
+
+SSIM rejected: 6x slower, score doesn't map to pixel counts (users expect "how many pixels changed"), diff image is a structural heat map rather than pixel-precise highlighting.
+
+Custom pixel engine rejected: no anti-aliasing detection means it would need to reimplement most of dify's logic to be production-ready.
 
 ---
 

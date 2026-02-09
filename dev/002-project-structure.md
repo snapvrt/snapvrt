@@ -45,7 +45,7 @@ snapvrt/
 │   ├── shot/
 │   │   └── Dockerfile
 │   └── spot/
-│       ├── pixelmatch/
+│       ├── dify/
 │       │   └── Dockerfile
 │       ├── odiff/
 │       │   └── Dockerfile
@@ -140,7 +140,7 @@ docker/
 ├── shot/                 # Screenshot + PDF service (Chrome + PDFium)
 │   └── Dockerfile
 └── spot/                 # Diff services (MIT-compatible engines only)
-    ├── pixelmatch/       # ISC license
+    ├── dify/             # MIT license (default)
     │   └── Dockerfile
     ├── odiff/            # MIT license
     │   └── Dockerfile
@@ -194,3 +194,4 @@ snapvrt/
 
 - [Graphite: Managing multiple languages in a monorepo](https://graphite.com/guides/managing-multiple-languages-in-a-monorepo)
 - [push-based/multilanguage-monorepo](https://github.com/push-based/multilanguage-monorepo)
+- [jihchi/dify](https://github.com/jihchi/dify) — Rust image diff tool distributed via npm with platform-specific binary packages. Evaluate as a reference for wrapping the `snapvrt` CLI binary and distributing it through npm (e.g., `npx snapvrt` or `npm install -g snapvrt`).

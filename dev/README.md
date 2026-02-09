@@ -139,7 +139,7 @@ docker run \
 | Image                              | Contents                           |
 | ---------------------------------- | ---------------------------------- |
 | `ghcr.io/snapvrt/shot`             | Rust binary + Chrome + PDFium      |
-| `ghcr.io/snapvrt/spot-pixelmatch`  | Rust binary + pixelmatch (default) |
+| `ghcr.io/snapvrt/spot-dify`        | Rust binary + dify (default)       |
 | `ghcr.io/snapvrt/spot-odiff`       | Rust binary + odiff                |
 | `ghcr.io/snapvrt/spot-imagemagick` | Rust binary + imagemagick          |
 
@@ -159,7 +159,7 @@ See [002-project-structure.md](002-project-structure.md) for Dockerfile location
 
 ## Licensing
 
-The main repository is MIT licensed. All bundled diff engines use MIT-compatible licenses (ISC, MIT, Apache-2.0).
+The main repository is MIT licensed. All bundled diff engines use MIT-compatible licenses (MIT, Apache-2.0).
 
 Third-party engines with copyleft licenses (e.g., dssim/AGPL) are maintained in separate repositories. Users opt in by configuring the external image. See [003-rust-crates.md](003-rust-crates.md#licensing) for details.
 

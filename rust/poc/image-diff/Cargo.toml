@@ -1,0 +1,12 @@
+[package]
+name = "poc-image-diff"
+edition.workspace = true
+publish = false
+
+[dependencies]
+image.workspace = true
+dify.workspace = true
+image-compare.workspace = true
+clap.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true

@@ -49,7 +49,7 @@ Alternative shot backends (same protocol):
 
 Alternative spot engines (same protocol):
 ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
-│ pixelmatch       │    │ odiff            │    │ imagemagick      │
+│ dify (default)   │    │ odiff            │    │ imagemagick      │
 └──────────────────┘    └──────────────────┘    └──────────────────┘
 ```
 
