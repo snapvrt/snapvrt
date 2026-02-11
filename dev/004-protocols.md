@@ -8,7 +8,7 @@ This is the single source of truth for all HTTP protocols between snapvrt compon
 
 ## Health Check
 
-All workers (shot and spot) respond to:
+All workers (capture and diff) respond to:
 
 ```
 GET /health → { "version": "0.1.0", "protocol": 1 }
@@ -47,7 +47,7 @@ Filtering:
 - Only `type: "story"` (exclude docs)
 - Skip stories with `snapvrt-skip` tag
 
-## Shot Protocol
+## Capture Protocol
 
 Two endpoints for web and PDF content.
 
@@ -196,7 +196,7 @@ Visual regression tests are notoriously flaky. The spec covers animation disabli
 - Known non-determinism sources (sub-pixel rendering, GPU differences)
 - Baseline update strategy when Chrome is upgraded in the container image
 
-Address during Phase 1 (shot implementation) and Phase 2 (compare pipeline).
+Address during Phase 1 (capture implementation) and Phase 2 (compare pipeline).
 
 ### Font Consistency
 
@@ -225,7 +225,7 @@ Crop to `<body>` bounding box, not full viewport. This handles varying component
    f. Capture screenshot cropped to content
    g. Close tab
 
-## Spot Protocol
+## Diff Protocol
 
 ### Request
 

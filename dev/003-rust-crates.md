@@ -24,7 +24,7 @@ rust/
     │       ├── config.rs        # Configuration loading
     │       ├── orchestrator.rs  # Top-level: discover → capture → compare → report
     │       ├── pool.rs          # WorkerPool trait + DockerPool (bollard) + StaticPool (dev)
-    │       ├── compare.rs       # 2-phase diff pipeline: memcmp → delegate to spot pool
+    │       ├── compare.rs       # 2-phase diff pipeline: memcmp → delegate to diff pool
     │       ├── store.rs         # Snapshot filesystem operations (.snapvrt/)
     │       ├── reporter.rs      # Terminal output (progress, summary) + HTML report
     │       ├── server.rs        # HTTP API service (axum). Thin layer over orchestrator
@@ -35,8 +35,8 @@ rust/
     │       │   └── pdf.rs       # Parse manifest, extract metadata (lopdf)
     │       └── clients/
     │           ├── mod.rs
-    │           ├── shot.rs      # Typed HTTP client for snapvrt-shot (reqwest)
-    │           └── spot.rs      # Typed HTTP client for snapvrt-spot (reqwest)
+    │           ├── capture.rs   # Typed HTTP client for snapvrt-capture (reqwest)
+    │           └── diff.rs      # Typed HTTP client for snapvrt-diff (reqwest)
     │
     ├── snapvrt-wire/            # Shared types & wire contract (internal)
     │   ├── Cargo.toml
@@ -45,7 +45,7 @@ rust/
     │       ├── types.rs         # Viewport, Png(Vec<u8>), CompareResult, DiffResult
     │       └── protocol.rs      # Header constants, health response type
     │
-    ├── snapvrt-shot/            # Screenshot + PDF worker binary (container)
+    ├── snapvrt-capture/            # Screenshot + PDF worker binary (container)
     │   ├── Cargo.toml
     │   └── src/
     │       ├── main.rs
@@ -55,7 +55,7 @@ rust/
     │       ├── screenshot.rs    # Navigate, inject styles, wait for ready, capture
     │       └── pdf.rs           # PDF → PNG rendering (pdfium-render)
     │
-    └── snapvrt-spot/            # Diff service binary (container)
+    └── snapvrt-diff/            # Diff service binary (container)
         ├── Cargo.toml
         └── src/
             ├── main.rs
@@ -70,21 +70,21 @@ rust/
 
 ## Crates
 
-| Crate          | Type    | Published | Description                                             |
-| -------------- | ------- | --------- | ------------------------------------------------------- |
-| `snapvrt`      | Binary  | crates.io | Main CLI, HTTP server, orchestration                    |
-| `snapvrt-wire` | Library | Internal  | Shared types, wire contract between CLI ↔ shot ↔ spot |
-| `snapvrt-shot` | Binary  | Container | Screenshot + PDF service (Chrome, PDFium)               |
-| `snapvrt-spot` | Binary  | Container | Diff service (image comparison)                         |
+| Crate             | Type    | Published | Description                                                |
+| ----------------- | ------- | --------- | ---------------------------------------------------------- |
+| `snapvrt`         | Binary  | crates.io | Main CLI, HTTP server, orchestration                       |
+| `snapvrt-wire`    | Library | Internal  | Shared types, wire contract between CLI ↔ capture ↔ diff |
+| `snapvrt-capture` | Binary  | Container | Screenshot + PDF service (Chrome, PDFium)                  |
+| `snapvrt-diff`    | Binary  | Container | Diff service (image comparison)                            |
 
 ### Why These Names
 
-| Crate          | Rationale                                                                                               |
-| -------------- | ------------------------------------------------------------------------------------------------------- |
-| `snapvrt`      | User-facing tool. `cargo install snapvrt` → `snapvrt` binary.                                           |
-| `snapvrt-wire` | The wire layer: types + protocol contract between all services. Short, thematic.                        |
-| `snapvrt-shot` | Takes shots (screenshots, PDF pages). Echoes "screenshot" and "snapshot." No ambiguity with WorkerPool. |
-| `snapvrt-spot` | Spots differences. "Spot the difference" — the classic visual puzzle.                                   |
+| Crate             | Rationale                                                                        |
+| ----------------- | -------------------------------------------------------------------------------- |
+| `snapvrt`         | User-facing tool. `cargo install snapvrt` → `snapvrt` binary.                    |
+| `snapvrt-wire`    | The wire layer: types + protocol contract between all services. Short, thematic. |
+| `snapvrt-capture` | Captures screenshots and PDF pages. Clear and descriptive.                       |
+| `snapvrt-diff`    | Compares images and produces diff output. Standard terminology.                  |
 
 ### Workspace Cargo.toml
 
@@ -111,23 +111,23 @@ tracing = "0.1"
 ### Dependency Graph
 
 ```
-snapvrt ──────────► snapvrt-wire ◄──────────── snapvrt-shot
+snapvrt ──────────► snapvrt-wire ◄──────────── snapvrt-capture
     (clap, bollard,     (serde)         (axum, see poc/cdp-raw,
      reqwest, axum,                      pdfium-render)
      lopdf)                    ▲
                                │
-                          snapvrt-spot
+                          snapvrt-diff
                         (axum, dify)
 ```
 
-Three binaries communicate via HTTP only. No direct Rust dependencies between `snapvrt`, `snapvrt-shot`, and `snapvrt-spot`. All three depend on `snapvrt-wire` for shared types.
+Three binaries communicate via HTTP only. No direct Rust dependencies between them. All three depend on `snapvrt-wire` for shared types.
 
 ### Container Images
 
-| Crate          | Image                                                                                               |
-| -------------- | --------------------------------------------------------------------------------------------------- |
-| `snapvrt-shot` | `ghcr.io/snapvrt/shot`                                                                              |
-| `snapvrt-spot` | `ghcr.io/snapvrt/spot-dify`, `ghcr.io/snapvrt/spot-odiff`, `ghcr.io/snapvrt/spot-imagemagick` |
+| Crate             | Image                                                                                         |
+| ----------------- | --------------------------------------------------------------------------------------------- |
+| `snapvrt-capture` | `ghcr.io/snapvrt/capture`                                                                     |
+| `snapvrt-diff`    | `ghcr.io/snapvrt/diff-dify`, `ghcr.io/snapvrt/diff-odiff`, `ghcr.io/snapvrt/diff-imagemagick` |
 
 ## snapvrt Crate Modules
 
@@ -139,7 +139,7 @@ Three binaries communicate via HTTP only. No direct Rust dependencies between `s
 | `config`            | Load TOML, env vars, CLI args. Merge with precedence             |
 | `orchestrator`      | Top-level: discover → capture → compare → report                 |
 | `pool`              | `WorkerPool` trait + `DockerPool` (bollard) + `StaticPool` (dev) |
-| `compare`           | 2-phase diff pipeline: memcmp → delegate to spot pool            |
+| `compare`           | 2-phase diff pipeline: memcmp → delegate to diff pool            |
 | `store`             | Snapshot filesystem ops (`.snapvrt/`). Read/write snapshots      |
 | `reporter`          | Terminal output (progress, summary) and HTML report generation   |
 | `server`            | HTTP API service (axum). Thin layer over orchestrator            |
@@ -147,8 +147,8 @@ Three binaries communicate via HTTP only. No direct Rust dependencies between `s
 | `sources/mod`       | `Source` trait definition                                        |
 | `sources/storybook` | Fetch index.json from Storybook, filter stories, build URLs      |
 | `sources/pdf`       | Parse manifest, extract metadata (lopdf)                         |
-| `clients/shot`      | Typed HTTP client for snapvrt-shot (reqwest)                     |
-| `clients/spot`      | Typed HTTP client for snapvrt-spot (reqwest)                     |
+| `clients/capture`   | Typed HTTP client for snapvrt-capture (reqwest)                  |
+| `clients/diff`      | Typed HTTP client for snapvrt-diff (reqwest)                     |
 
 ### Module Dependencies
 
@@ -184,7 +184,7 @@ Three binaries communicate via HTTP only. No direct Rust dependencies between `s
 | `server`       | orchestrator                            |
 | `review`       | orchestrator, store                     |
 | `orchestrator` | sources, pool, store, compare, reporter |
-| `compare`      | clients/spot                            |
+| `compare`      | clients/diff                            |
 
 ### Error Types
 
@@ -205,8 +205,8 @@ pub struct Config {
 // orchestrator.rs
 pub struct Orchestrator {
     config: Arc<Config>,
-    shot_pool: Box<dyn WorkerPool>,
-    spot_pool: Box<dyn WorkerPool>,
+    capture_pool: Box<dyn WorkerPool>,
+    diff_pool: Box<dyn WorkerPool>,
     store: Store,
 }
 
@@ -256,7 +256,7 @@ impl Store {
 
 ## snapvrt-wire Crate
 
-Shared types and wire contract used by `snapvrt`, `snapvrt-shot`, and `snapvrt-spot`.
+Shared types and wire contract between `snapvrt`, `snapvrt-capture`, and `snapvrt-diff`.
 
 Dependencies: `serde`
 
@@ -285,7 +285,7 @@ pub struct DiffResult {
 
 Protocol constants and health response type are defined here. See [004-protocols.md](004-protocols.md) for the full wire protocol specification.
 
-## snapvrt-shot Crate
+## snapvrt-capture Crate
 
 Runs inside containers. Receives URLs, returns PNGs.
 
@@ -317,19 +317,19 @@ impl TabPool {
 
 Tab count from environment: `SNAPVRT_TABS=4`
 
-See [004-protocols.md](004-protocols.md) for the shot HTTP protocol.
+See [004-protocols.md](004-protocols.md) for the capture HTTP protocol.
 
-## snapvrt-spot Crate
+## snapvrt-diff Crate
 
 Runs inside containers. Receives two PNGs, returns match/score/diff.
 
 ### Module Responsibilities
 
-| Module     | Responsibility                                   |
-| ---------- | ------------------------------------------------ |
-| `server`   | Axum HTTP endpoint (`POST /diff`, `/health`)     |
-| `engine`   | Pluggable comparison engine dispatch      |
-| `engines/` | Implementations (dify, odiff, imagemagick) |
+| Module     | Responsibility                               |
+| ---------- | -------------------------------------------- |
+| `server`   | Axum HTTP endpoint (`POST /diff`, `/health`) |
+| `engine`   | Pluggable comparison engine dispatch         |
+| `engines/` | Implementations (dify, odiff, imagemagick)   |
 
 ### Pluggable Engines
 
@@ -343,17 +343,17 @@ pub trait DiffEngine: Send + Sync {
 
 **Bundled engines (MIT-compatible):**
 
-| Engine        | License    | Notes                                       |
-| ------------- | ---------- | ------------------------------------------- |
-| `dify`        | MIT        | Default, YIQ perceptual + anti-aliasing     |
-| `odiff`       | MIT        | SIMD-optimized, very fast                   |
-| `imagemagick` | Apache-2.0 | Multiple algorithms                         |
+| Engine        | License    | Notes                                   |
+| ------------- | ---------- | --------------------------------------- |
+| `dify`        | MIT        | Default, YIQ perceptual + anti-aliasing |
+| `odiff`       | MIT        | SIMD-optimized, very fast               |
+| `imagemagick` | Apache-2.0 | Multiple algorithms                     |
 
 Engine selected via environment: `SNAPVRT_DIFF_ENGINE=dify`
 
-**External engines:** Users can configure any container image that implements the `POST /diff` protocol (see [004-protocols.md](004-protocols.md#spot-protocol)).
+**External engines:** Users can configure any container image that implements the `POST /diff` protocol (see [004-protocols.md](004-protocols.md#diff-protocol)).
 
-See [004-protocols.md](004-protocols.md) for the spot HTTP protocol.
+See [004-protocols.md](004-protocols.md) for the diff HTTP protocol.
 
 ## Runtime Architecture
 
@@ -420,10 +420,10 @@ See [004-protocols.md](004-protocols.md) for the spot HTTP protocol.
 │  ┌──────────────────────────────────────────────────────────────────────┐  │
 │  │ Container Manager                                                    │  │
 │  │                                                                      │  │
-│  │  ┌─────────────────────┐  ┌─────────────────────┐                    │  │
-│  │  │ shot (Chrome + PDF) │  │ spot (dify)         │                    │  │
-│  │  │ POST /screenshot/*  │  │ POST /diff          │                    │  │
-│  │  └─────────────────────┘  └─────────────────────┘                    │  │
+│  │  ┌──────────────────────────┐  ┌─────────────────────┐               │  │
+│  │  │ capture (Chrome + PDF)   │  │ diff (dify)         │               │  │
+│  │  │ POST /screenshot/*       │  │ POST /diff          │               │  │
+│  │  └──────────────────────────┘  └─────────────────────┘               │  │
 │  │                                                                      │  │
 │  │  Both: 5-min idle timeout, auto-stop, restart on request             │  │
 │  └──────────────────────────────────────────────────────────────────────┘  │
@@ -446,5 +446,5 @@ Only MIT-compatible diff engines are bundled (dify/MIT, odiff/MIT, imagemagick/A
 
 ```toml
 [diff]
-image = "ghcr.io/snapvrt/spot-dssim"  # AGPL-3.0, separate repo
+image = "ghcr.io/snapvrt/diff-dssim"  # AGPL-3.0, separate repo
 ```

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["poc/*"]
+members = ["crates/*"]
 
 [workspace.package]
 version = "0.1.0"
@@ -9,8 +9,6 @@ license = "MIT"
 repository = "https://github.com/snapvrt/snapvrt"
 
 [workspace.dependencies]
-headless_chrome = "1.0"
-chromiumoxide = { version = "0.8", features = ["tokio-runtime"], default-features = false }
 tokio = { version = "1.49", features = ["rt-multi-thread", "macros", "process", "io-util", "time"] }
 tokio-tungstenite = "0.28"
 futures = "0.3"
@@ -23,4 +21,6 @@ reqwest = { version = "0.13", features = ["json"] }
 thiserror = "2.0"
 image = "0.25"
 dify = "0.8"
-image-compare = "0.5"
+toml = "0.8"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

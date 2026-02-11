@@ -33,15 +33,17 @@ See [001-architecture.md](001-architecture.md) for the system architecture diagr
 
 ## Design Documents
 
-| Document                                             | Description                                           |
-| ---------------------------------------------------- | ----------------------------------------------------- |
-| [001-architecture.md](001-architecture.md)           | System architecture, component diagram, diff pipeline |
-| [002-project-structure.md](002-project-structure.md) | Monorepo folder layout, workspace organization        |
-| [003-rust-crates.md](003-rust-crates.md)             | Rust workspace, crate boundaries, module architecture |
-| [004-protocols.md](004-protocols.md)                 | Wire protocols: shot, spot, health, story discovery   |
-| [005-cli-design.md](005-cli-design.md)               | Multi-source CLI design, source types, error handling |
-| [006-js-packages.md](006-js-packages.md)             | JavaScript client, Jest/Vitest integration            |
-| [007-decisions.md](007-decisions.md)                 | Architecture decisions and resolved trade-offs        |
+| Document                                               | Description                                            |
+| ------------------------------------------------------ | ------------------------------------------------------ |
+| [001-architecture.md](001-architecture.md)             | System architecture, component diagram, diff pipeline  |
+| [002-project-structure.md](002-project-structure.md)   | Monorepo folder layout, workspace organization         |
+| [003-rust-crates.md](003-rust-crates.md)               | Rust workspace, crate boundaries, module architecture  |
+| [004-protocols.md](004-protocols.md)                   | Wire protocols: capture, diff, health, story discovery |
+| [005-cli-design.md](005-cli-design.md)                 | Multi-source CLI design, source types, error handling  |
+| [006-js-packages.md](006-js-packages.md)               | JavaScript client, Jest/Vitest integration             |
+| [007-decisions.md](007-decisions.md)                   | Architecture decisions and resolved trade-offs         |
+| [008-screenshot-capture.md](008-screenshot-capture.md) | Screenshot capture best practices analysis             |
+| [010-docker-first.md](010-docker-first.md)             | Docker-first architecture (active), local opt-in       |
 
 ## User Documentation
 
@@ -54,12 +56,12 @@ See [001-architecture.md](001-architecture.md) for the system architecture diagr
 
 ## Components
 
-| Component | Crate          | Description                                                  |
-| --------- | -------------- | ------------------------------------------------------------ |
-| CLI       | `snapvrt`      | Orchestrator: discover, capture, compare, report             |
-| Wire      | `snapvrt-wire` | Shared types and protocol constants                          |
-| Shot      | `snapvrt-shot` | Screenshot + PDF worker (Chrome + PDFium, runs in container) |
-| Spot      | `snapvrt-spot` | Diff service (pluggable engines, runs in container)          |
+| Component | Crate             | Description                                                  |
+| --------- | ----------------- | ------------------------------------------------------------ |
+| CLI       | `snapvrt`         | Orchestrator: discover, capture, compare, report             |
+| Wire      | `snapvrt-wire`    | Shared types and protocol constants                          |
+| Capture   | `snapvrt-capture` | Screenshot + PDF worker (Chrome + PDFium, runs in container) |
+| Diff      | `snapvrt-diff`    | Diff service (pluggable engines, runs in container)          |
 
 See [003-rust-crates.md](003-rust-crates.md) for crate details and module architecture.
 
@@ -124,7 +126,7 @@ docker run \
   --add-host=host.docker.internal:host-gateway \
   -e SNAPVRT_TABS=4 \
   -p ${PORT}:3000 \
-  ghcr.io/snapvrt/shot
+  ghcr.io/snapvrt/capture
 ```
 
 | Flag                                  | Purpose                                        |
@@ -136,12 +138,12 @@ docker run \
 
 ### Container Images
 
-| Image                              | Contents                           |
-| ---------------------------------- | ---------------------------------- |
-| `ghcr.io/snapvrt/shot`             | Rust binary + Chrome + PDFium      |
-| `ghcr.io/snapvrt/spot-dify`        | Rust binary + dify (default)       |
-| `ghcr.io/snapvrt/spot-odiff`       | Rust binary + odiff                |
-| `ghcr.io/snapvrt/spot-imagemagick` | Rust binary + imagemagick          |
+| Image                              | Contents                      |
+| ---------------------------------- | ----------------------------- |
+| `ghcr.io/snapvrt/capture`          | Rust binary + Chrome + PDFium |
+| `ghcr.io/snapvrt/diff-dify`        | Rust binary + dify (default)  |
+| `ghcr.io/snapvrt/diff-odiff`       | Rust binary + odiff           |
+| `ghcr.io/snapvrt/diff-imagemagick` | Rust binary + imagemagick     |
 
 See [002-project-structure.md](002-project-structure.md) for Dockerfile locations.
 
@@ -154,8 +156,8 @@ See [002-project-structure.md](002-project-structure.md) for Dockerfile location
 | npm       | `@snapvrt/client`         | JS client for service API                |
 | npm       | `@snapvrt/jest`           | Jest matchers                            |
 | crates.io | `snapvrt`                 | CLI binary                               |
-| GHCR      | `ghcr.io/snapvrt/shot`    | Screenshot + PDF service                 |
-| GHCR      | `ghcr.io/snapvrt/spot-*`  | Diff services                            |
+| GHCR      | `ghcr.io/snapvrt/capture` | Screenshot + PDF service                 |
+| GHCR      | `ghcr.io/snapvrt/diff-*`  | Diff services                            |
 
 ## Licensing
 

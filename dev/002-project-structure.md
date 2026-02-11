@@ -29,8 +29,8 @@ snapvrt/
 │   └── crates/
 │       ├── snapvrt/          # CLI binary (published to crates.io)
 │       ├── snapvrt-wire/     # Shared types & wire contract
-│       ├── snapvrt-shot/     # Screenshot + PDF worker (container)
-│       └── snapvrt-spot/     # Diff service (container)
+│       ├── snapvrt-capture/  # Screenshot + PDF worker (container)
+│       └── snapvrt-diff/     # Diff service (container)
 │
 ├── node/                     # npm workspace
 │   ├── package.json          # Workspace manifest
@@ -42,9 +42,9 @@ snapvrt/
 │       └── vitest/           # @snapvrt/vitest
 │
 ├── docker/                   # Container definitions
-│   ├── shot/
+│   ├── capture/
 │   │   └── Dockerfile
-│   └── spot/
+│   └── diff/
 │       ├── dify/
 │       │   └── Dockerfile
 │       ├── odiff/
@@ -91,12 +91,12 @@ repository = "https://github.com/snapvrt/snapvrt"
 
 ### Crates
 
-| Crate          | Type    | Description                            |
-| -------------- | ------- | -------------------------------------- |
-| `snapvrt`      | Binary  | CLI binary, HTTP server, orchestration |
-| `snapvrt-wire` | Library | Shared types & wire contract           |
-| `snapvrt-shot` | Binary  | Screenshot + PDF worker (container)    |
-| `snapvrt-spot` | Binary  | Diff service (container)               |
+| Crate             | Type    | Description                            |
+| ----------------- | ------- | -------------------------------------- |
+| `snapvrt`         | Binary  | CLI binary, HTTP server, orchestration |
+| `snapvrt-wire`    | Library | Shared types & wire contract           |
+| `snapvrt-capture` | Binary  | Screenshot + PDF worker (container)    |
+| `snapvrt-diff`    | Binary  | Diff service (container)               |
 
 See [003-rust-crates.md](003-rust-crates.md) for detailed crate architecture.
 
@@ -137,9 +137,9 @@ Container definitions live in `/docker/` rather than inside `/rust/` because:
 
 ```
 docker/
-├── shot/                 # Screenshot + PDF service (Chrome + PDFium)
+├── capture/              # Screenshot + PDF service (Chrome + PDFium)
 │   └── Dockerfile
-└── spot/                 # Diff services (MIT-compatible engines only)
+└── diff/                 # Diff services (MIT-compatible engines only)
     ├── dify/             # MIT license (default)
     │   └── Dockerfile
     ├── odiff/            # MIT license
