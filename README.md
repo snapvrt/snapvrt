@@ -31,6 +31,10 @@ snapvrt test               # run visual regression tests
 snapvrt review             # review changes in browser
 ```
 
+## Docker (cross-platform screenshots)
+
+For consistent rendering across hosts, run Chrome in Docker. See [rust/README.md](rust/README.md) for setup, flag explanations, and troubleshooting.
+
 ## Documentation
 
 - [Getting Started](docs/getting-started.md) - Installation and first use
@@ -40,13 +44,6 @@ snapvrt review             # review changes in browser
 - [Design Docs](dev/) - Architecture and specification
 
 ## Contributing
-
-Prerequisites: Rust (see `rust/rust-toolchain.toml`), Node.js (see `.nvmrc`), Docker, pnpm.
-
-```bash
-cd rust && cargo build                    # build CLI + workers
-cd node && pnpm install && pnpm build     # build JS packages
-```
 
 See [dev/](dev/) for design docs and architecture before implementing.
 

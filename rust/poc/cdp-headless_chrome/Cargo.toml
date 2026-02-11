@@ -1,9 +1,0 @@
-[package]
-name = "poc-cdp-headless-chrome"
-edition.workspace = true
-publish = false
-
-[dependencies]
-headless_chrome.workspace = true
-clap.workspace = true
-anyhow.workspace = true

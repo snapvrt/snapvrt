@@ -63,12 +63,12 @@ Usage — the orchestrator is backend-agnostic:
 
 ```rust
 // Production: containers managed by DockerPool
-let shots: Box<dyn WorkerPool> = Box::new(
-    DockerPool::new("ghcr.io/snapvrt/shot:0.1.0", count: 4)
+let captures: Box<dyn WorkerPool> = Box::new(
+    DockerPool::new("ghcr.io/snapvrt/capture:0.1.0", count: 4)
 );
 
 // Dev: local processes at static URLs
-let shots: Box<dyn WorkerPool> = Box::new(
+let captures: Box<dyn WorkerPool> = Box::new(
     StaticPool::new(vec!["http://localhost:7281"])
 );
 ```
@@ -77,7 +77,7 @@ All workers speak HTTP. Same protocol regardless of backend. This is why we chos
 
 **Open questions (discuss later):**
 
-1. **Typed HTTP clients.** Should we wrap the worker protocols in typed Rust client structs (`ShotClient`, `SpotClient`) that encode the protocol, rather than having callers construct raw HTTP requests?
+1. **Typed HTTP clients.** Should we wrap the worker protocols in typed Rust client structs (`CaptureClient`, `DiffClient`) that encode the protocol, rather than having callers construct raw HTTP requests?
 
 2. **Pool composition: `pool.send()` vs `pool.acquire()`.** Should the pool dispatch requests directly, or hand out a connection/client to a specific worker that the caller uses and returns?
 
@@ -86,9 +86,9 @@ Health check includes protocol version (see [004-protocols.md](004-protocols.md#
 **Impact on architecture:**
 
 - `pool.rs` contains `WorkerPool` trait + `DockerPool` impl + `StaticPool` impl
-- Orchestrator uses two pool instances (shot pool + spot pool)
+- Orchestrator uses two pool instances (capture pool + diff pool)
 - Both services become independently scalable
-- `StaticPool` enables local dev without containers (`--shot-url`, `--spot-url`)
+- `StaticPool` enables local dev without containers (`--capture-url`, `--diff-url`)
 - Future backends (Lambda) slot in without changing orchestration logic
 
 ---
@@ -97,15 +97,15 @@ Health check includes protocol version (see [004-protocols.md](004-protocols.md#
 
 **Resolves:** #2 (protocol mismatch)
 
-Use HTTP idiomatically: multipart for sending images, headers for metadata, body for the result image. Same pattern as the shot service.
+Use HTTP idiomatically: multipart for sending images, headers for metadata, body for the result image. Same pattern as the capture service.
 
-**Volume mounts considered and rejected.** Mounting `.snapvrt/snapshots/` into the spot container would skip HTTP entirely, but:
+**Volume mounts considered and rejected.** Mounting `.snapvrt/snapshots/` into the diff container would skip HTTP entirely, but:
 
 - Locks the protocol to Docker (can't use Lambda, remote servers, etc.)
 - Breaks the backend-agnostic abstraction
 - Speed gain is marginal: compute (~10ms) dominates transport (~2-3ms)
 
-See [004-protocols.md](004-protocols.md#spot-protocol) for the full protocol specification.
+See [004-protocols.md](004-protocols.md#diff-protocol) for the full protocol specification.
 
 ---
 
@@ -120,7 +120,7 @@ See [001-architecture.md](001-architecture.md#2-phase-diff-pipeline) for the pip
 **Impact on architecture:**
 
 - `compare.rs` in the snapvrt crate handles the 2-phase pipeline
-- No in-process pixel decoding — all pixel work delegated to snapvrt-spot
+- No in-process pixel decoding — all pixel work delegated to snapvrt-diff
 - `snapvrt-wire` stays clean: types and protocol definitions only. No `image` crate dependency.
 
 ---
@@ -149,7 +149,7 @@ The orchestrator only handles the shared compare/report/approve phases. Each sou
 
 **Resolves:** #4 (core crate has misplaced logic)
 
-The old `core` crate had `diff.rs` that didn't belong. With the 2-phase pipeline, all pixel work is delegated to snapvrt-spot. The crate is renamed to `snapvrt-wire` and contains only:
+The old `core` crate had `diff.rs` that didn't belong. With the 2-phase pipeline, all pixel work is delegated to snapvrt-diff. The crate is renamed to `snapvrt-wire` and contains only:
 
 - `types.rs` — `Viewport`, `Png(Vec<u8>)`, `CompareResult`, `DiffResult`
 - `protocol.rs` — Header constants, health response type
@@ -171,10 +171,10 @@ Dependencies: `serde` only.
 | Poppler    | GPL-2.0    | ~30-70ms   | Can't bundle  |
 | Chrome CDP | Apache-2.0 | ~200-500ms | Fallback only |
 
-snapvrt-shot integration — PDF rendering is in-process alongside Chrome, no extra container:
+snapvrt-capture integration — PDF rendering is in-process alongside Chrome, no extra container:
 
 ```
-snapvrt-shot container image:
+snapvrt-capture container image:
   Chromium + CDP (see poc/cdp-raw)  → POST /screenshot/web
   libpdfium.so (~25MB) + pdfium-render  → POST /screenshot/pdf
 ```
@@ -203,7 +203,7 @@ Future `--self-contained` flag inlines images for a single portable file.
 
 **Resolves:** #10
 
-Jest sends PDF buffer → service writes to temp file → serves via `/files/*` endpoint → snapvrt-shot fetches URL → renders → service cleans up temp file after comparison.
+Jest sends PDF buffer → service writes to temp file → serves via `/files/*` endpoint → snapvrt-capture fetches URL → renders → service cleans up temp file after comparison.
 
 ---
 
@@ -269,6 +269,6 @@ Custom pixel engine rejected: no anti-aliasing detection means it would need to 
 
 **Resolves:** #17
 
-Ship with `unconfined` for v1. snapvrt-shot only navigates to user-controlled URLs (their own Storybook, their own PDFs). Research a custom Chrome seccomp profile during post-MVP hardening.
+Ship with `unconfined` for v1. snapvrt-capture only navigates to user-controlled URLs (their own Storybook, their own PDFs). Research a custom Chrome seccomp profile during post-MVP hardening.
 
 **Risk note:** `seccomp=unconfined` + `--no-sandbox` means Chrome runs with zero sandboxing. A malicious Storybook story could escape the container. For shared CI environments this matters. Prioritize a custom seccomp profile post-MVP.

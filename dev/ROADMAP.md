@@ -19,7 +19,7 @@ Three PoCs compared (`rust/poc/CDP-COMPARISON.md`):
 - **headless_chrome** — sync, multi-tab works but ~4x slower due to mutex contention
 - **cdp-raw** — direct per-target WebSockets via tokio-tungstenite (**winner**)
 
-cdp-raw gives true multi-tab parallelism in a single browser (~150 MB/tab vs ~1.1 GB/browser), using ~300 lines of custom CDP transport. Production `snapvrt-shot` will use this approach instead of chromiumoxide.
+cdp-raw gives true multi-tab parallelism in a single browser (~150 MB/tab vs ~1.1 GB/browser), using ~300 lines of custom CDP transport. Production `snapvrt-capture` will use this approach instead of chromiumoxide.
 
 **Validated:** CDP transport, ready detection (fonts + DOM stability), screenshot cropping, multi-tab parallelism, Chrome launch flags for background tab throttling.
 
@@ -40,11 +40,11 @@ Run against the example project from 0.1.
 
 Compared three diff engines (`rust/poc/image-diff/`):
 
-| Engine   | Crate           | Score (4a→4b) | Time   | Anti-alias |
-| -------- | --------------- | ------------- | ------ | ---------- |
-| **dify** | `dify`          | 0.032         | 44ms   | yes        |
-| pixel    | (custom)        | 0.057         | 13ms   | no         |
-| ssim     | `image-compare` | 0.167         | 248ms  | no         |
+| Engine   | Crate           | Score (4a→4b) | Time  | Anti-alias |
+| -------- | --------------- | ------------- | ----- | ---------- |
+| **dify** | `dify`          | 0.032         | 44ms  | yes        |
+| pixel    | (custom)        | 0.057         | 13ms  | no         |
+| ssim     | `image-compare` | 0.167         | 248ms | no         |
 
 **Winner: dify** — YIQ perceptual pixel diff (same algorithm as pixelmatch) with anti-aliasing detection. MIT licensed, pure Rust, no FFI/WASM needed.
 
@@ -61,21 +61,25 @@ Findings from PoCs feed back into the design docs. Update architecture and proto
 Build the real crates based on validated PoCs.
 
 - `snapvrt-wire` — shared types (`Viewport`, `Png`, `CompareResult`, `DiffResult`, protocol constants)
-- `snapvrt-shot` — HTTP server wrapping the CDP screenshot PoC (web only, PDF later)
-- `snapvrt-spot` — HTTP server wrapping the dify PoC
+- `snapvrt-capture` — HTTP server wrapping the CDP screenshot PoC (web only, PDF later)
+- `snapvrt-diff` — HTTP server wrapping the dify PoC
 - Docker images for both
 
-**Milestone:** Can `POST /screenshot/web` to a container and get a PNG back. Can `POST /diff` with two PNGs and get a score.
+**Milestone:** Can `POST /screenshot/web` to a capture container and get a PNG back. Can `POST /diff` to a diff container with two PNGs and get a score.
 
 ## Phase 2: CLI Core
 
 - `config` — TOML loading, env vars, CLI flag merging
 - `store` — `.snapvrt/` filesystem operations (read/write snapshots, atomic writes)
 - `pool` — `WorkerPool` trait, `DockerPool` (bollard), `StaticPool`
+  - Container lifecycle: auto-start, health-check polling (100ms/5s), cleanup on exit
+  - Chrome readiness: retry loop on `GET /json/version` instead of single attempt
 - `orchestrator` — discover → capture → compare → report pipeline
 - `sources/storybook` — story discovery + URL building
-- `clients/shot`, `clients/spot` — typed HTTP clients
-- `compare` — 2-phase diff pipeline (memcmp → spot)
+- Storybook error detection — check `.sb-show-errordisplay` after navigation, report as capture failure
+- `clients/capture`, `clients/diff` — typed HTTP clients
+- `compare` — 2-phase diff pipeline (memcmp → diff)
+- Investigate `captureBeyondViewport: true` in CDP screenshot — would remove viewport resize + 500ms settle delay for tall content, and avoid layout reflow from viewport units changing
 
 **Milestone:** `cargo run -- test` works end-to-end against a running Storybook.
 
@@ -99,7 +103,7 @@ Build the real crates based on validated PoCs.
 
 ## Phase 5: PDF Support
 
-- `snapvrt-shot` — add `/screenshot/pdf` endpoint (pdfium-render)
+- `snapvrt-capture` — add `/screenshot/pdf` endpoint (pdfium-render)
 - `sources/pdf` — manifest parsing, metadata extraction (lopdf)
 - Multi-page snapshot support (per-page directories, manifest.json)
 - Page count change detection (synthetic diffs for added/removed pages)
@@ -125,7 +129,7 @@ Build the real crates based on validated PoCs.
 Each phase should include tests for the code it introduces:
 
 - **Unit tests** — config parsing, store operations, compare logic, protocol serialization
-- **Integration tests** — real containers (shot + spot) with test fixtures
+- **Integration tests** — real containers (capture + diff) with test fixtures
 - **End-to-end tests** — full `snapvrt test` against the example Storybook from Phase 0.1
 - **Golden tests** — HTML report output against known-good snapshots
 - **CI pipeline** — run the above on every PR

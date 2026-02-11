@@ -16,8 +16,8 @@ This document defines the system architecture: component diagram, separation of 
 │  │ snapvrt CLI (orchestrator)                                           │ │
 │  │                                                                      │ │
 │  │  1. Discover snapshots (source-specific)                             │ │
-│  │  2. Capture screenshots via shot pool                                │ │
-│  │  3. Compare: memcmp → delegate mismatches to spot pool               │ │
+│  │  2. Capture screenshots via capture pool                             │ │
+│  │  3. Compare: memcmp → delegate mismatches to diff pool               │ │
 │  │  4. Report results                                                   │ │
 │  └─────────────────┬─────────────────────────────────────┬──────────────┘ │
 │                    │ HTTP                                │ HTTP           │
@@ -25,7 +25,7 @@ This document defines the system architecture: component diagram, separation of 
 │           │                   │                 │                  │      │
 │           ▼                   ▼                 ▼                  ▼      │
 │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────┐ ┌─────────────┐  │
-│  │ shot 1          │ │ shot N          │ │ spot 1      │ │ spot M      │  │
+│  │ capture 1       │ │ capture N       │ │ diff 1      │ │ diff M      │  │
 │  │ (container)     │ │ (container)     │ │ (container) │ │ (container) │  │
 │  │                 │ │                 │ │             │ │             │  │
 │  │ Chrome + PDFium │ │ Chrome + PDFium │ │ POST /diff  │ │ POST /diff  │  │
@@ -42,12 +42,12 @@ This document defines the system architecture: component diagram, separation of 
 │  └── report.html                                                          │
 └───────────────────────────────────────────────────────────────────────────┘
 
-Alternative shot backends (same protocol):
+Alternative capture backends (same protocol):
 ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
 │ AWS Lambda       │    │ Browserstack     │    │ Local Chrome     │
 └──────────────────┘    └──────────────────┘    └──────────────────┘
 
-Alternative spot engines (same protocol):
+Alternative diff engines (same protocol):
 ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
 │ dify (default)   │    │ odiff            │    │ imagemagick      │
 └──────────────────┘    └──────────────────┘    └──────────────────┘
@@ -58,13 +58,13 @@ Alternative spot engines (same protocol):
 | Component              | Responsibility                                            |
 | ---------------------- | --------------------------------------------------------- |
 | **CLI (orchestrator)** | Source discovery, task distribution, compare, report      |
-| **shot pool**          | Receive URL → return PNG (web via Chrome, PDF via PDFium) |
-| **spot pool**          | Receive two PNGs → return match/score/diff                |
+| **capture pool**       | Receive URL → return PNG (web via Chrome, PDF via PDFium) |
+| **diff pool**          | Receive two PNGs → return match/score/diff                |
 
 ## Why This Design
 
 - **Containers** - Consistent screenshots AND diffs across all platforms
-- **Parallelization** - N shots x K tabs for capture, M spots for comparison — scaled independently
+- **Parallelization** - N captures x K tabs for capture, M diffs for comparison — scaled independently
 - **Pluggable** - HTTP protocol enables alternative backends (see [protocols](004-protocols.md))
 - **CLI has context** - Access to git, filesystem, config
 - **Services are stateless** - URLs in, PNGs out; PNGs in, scores out
@@ -95,11 +95,11 @@ Minimizes diff service calls by doing a fast local check first:
 
 ## Future Backends
 
-| Backend    | Shot   | Spot | Use Case            |
-| ---------- | ------ | ---- | ------------------- |
-| Docker     | v1     | v1   | Default, consistent |
-| Static     | v1     | v1   | Dev/local mode      |
-| AWS Lambda | Future | -    | Scale to thousands  |
+| Backend    | Capture | Diff | Use Case            |
+| ---------- | ------- | ---- | ------------------- |
+| Docker     | v1      | v1   | Default, consistent |
+| Static     | v1      | v1   | Dev/local mode      |
+| AWS Lambda | Future  | -    | Scale to thousands  |
 
 See [003-rust-crates.md](003-rust-crates.md) for `WorkerPool` trait and backend implementations.
 

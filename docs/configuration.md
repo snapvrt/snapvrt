@@ -1,7 +1,5 @@
 # Configuration
 
-> TODO: Write configuration reference
-
 ## Config File
 
 `.snapvrt/config.toml`
@@ -10,84 +8,105 @@
 # .snapvrt/config.toml
 
 # ─────────────────────────────────────────────────────────
-# Diff engine
+# Source: Storybook
 # ─────────────────────────────────────────────────────────
-[diff]
-engine = "dify"         # dify (default), odiff, imagemagick
-threshold = 0.0001
-
-# ─────────────────────────────────────────────────────────
-# Workers
-# ─────────────────────────────────────────────────────────
-[workers]
-count = 1
-tabs_per_worker = 4
+[source.storybook]
+type = "storybook"
+url = "http://localhost:6006"
+# viewports = ["laptop"]           # optional: omit = use all defined viewports
 
 # ─────────────────────────────────────────────────────────
 # Viewports
 # ─────────────────────────────────────────────────────────
-[viewports.desktop]
+[viewport.laptop]
 width = 1366
 height = 768
 
-[viewports.mobile]
+[viewport.mobile]
 width = 375
-height = 667
-device_scale_factor = 2
+height = 812
 
 # ─────────────────────────────────────────────────────────
-# Source: Storybook
+# Capture pipeline — all fields optional.
 # ─────────────────────────────────────────────────────────
-[sources.storybook]
-url = "http://localhost:6006"       # Dev server URL
-# static_dir = "./storybook-static" # OR static build path
-viewports = ["desktop", "mobile"]   # Which viewports to test
-exclude_tags = ["snapvrt-skip"]     # Stories to skip
+[capture]
+# preset = "standard"               # "standard" | "loki"
+# animation = "post-load"           # "post-load" | "loki"
+# clip = "story-root"               # "story-root" | "body"
+# screenshot = "stable"             # "stable" | "single" (single is faster)
+# stability_attempts = 3
+# stability_delay_ms = 100
+# network_wait = "idle"             # "none" | "idle" | "fixed"
+# network_wait_delay_ms = 500       # for "fixed" variant
+# parallel = 4                      # concurrent browser tabs
+# chrome_url = "http://localhost:9222"  # remote Chrome (e.g. Docker)
 
 # ─────────────────────────────────────────────────────────
-# Source: PDF (batch mode)
+# Comparison
 # ─────────────────────────────────────────────────────────
-# [sources.pdf]
-# manifest = "./snapvrt-pdfs.json"
-# dpi = 144
-# merge = false
+[diff]
+# threshold = 0.0                   # max allowed diff score (0.0 = exact, 0.01 = 1%)
+```
+
+### Multi-source Example
+
+```toml
+[source.design-system]
+type = "storybook"
+url = "http://localhost:6006"
+viewports = ["laptop", "mobile"]
+
+[source.docs]
+type = "storybook"
+url = "http://localhost:6007"
+viewports = ["laptop"]
+
+[viewport.laptop]
+width = 1366
+height = 768
+
+[viewport.mobile]
+width = 375
+height = 812
 ```
 
 ## Options
 
-### Global
+### Source
 
-| Option                    | Default        | Description                                        |
-| ------------------------- | -------------- | -------------------------------------------------- |
-| `diff.engine`             | `"dify"`       | Diff engine (`dify`, `odiff`, `imagemagick`)       |
-| `diff.threshold`          | `0.0001`       | Acceptable difference threshold                    |
-| `workers.count`           | `1`            | Number of worker containers                        |
-| `workers.tabs_per_worker` | `4`            | Concurrent browser tabs per worker                 |
+| Option                    | Required | Default | Description                                        |
+| ------------------------- | -------- | ------- | -------------------------------------------------- |
+| `source.<name>.type`      | yes      | -       | Source type (`storybook`)                          |
+| `source.<name>.url`       | yes      | -       | Storybook dev server URL                           |
+| `source.<name>.viewports` | no       | all     | Subset of defined viewports to use for this source |
 
 ### Viewports
 
-| Option                                 | Default | Description                                    |
-| -------------------------------------- | ------- | ---------------------------------------------- |
-| `viewports.<name>.width`               | -       | Viewport width in CSS pixels                   |
-| `viewports.<name>.height`              | -       | Viewport height in CSS pixels                  |
-| `viewports.<name>.device_scale_factor` | `1`     | Pixel density ratio (1 = standard, 2 = retina) |
+| Option                   | Required | Default | Description                   |
+| ------------------------ | -------- | ------- | ----------------------------- |
+| `viewport.<name>.width`  | yes      | -       | Viewport width in CSS pixels  |
+| `viewport.<name>.height` | yes      | -       | Viewport height in CSS pixels |
 
-### Source: Storybook
+### Capture
 
-| Option                           | Default                   | Description                                           |
-| -------------------------------- | ------------------------- | ----------------------------------------------------- |
-| `sources.storybook.url`          | `"http://localhost:6006"` | Storybook dev server URL                              |
-| `sources.storybook.static_dir`   | -                         | Path to static Storybook build (alternative to `url`) |
-| `sources.storybook.viewports`    | `["desktop"]`             | Viewports to test                                     |
-| `sources.storybook.exclude_tags` | `["snapvrt-skip"]`        | Story tags to skip                                    |
+| Option                          | Default       | Description                                                  |
+| ------------------------------- | ------------- | ------------------------------------------------------------ |
+| `capture.preset`                | `"standard"`  | Base preset (`standard`, `loki`)                             |
+| `capture.animation`             | (from preset) | Animation handling (`post-load`, `loki`)                     |
+| `capture.clip`                  | (from preset) | Clip region calculation (`story-root`, `body`)               |
+| `capture.screenshot`            | (from preset) | Screenshot strategy (`stable`, `single`); `single` is faster |
+| `capture.stability_attempts`    | `3`           | Max attempts for stable screenshot comparison                |
+| `capture.stability_delay_ms`    | `100`         | Delay between stability attempts in milliseconds             |
+| `capture.network_wait`          | (from preset) | Network settling strategy (`none`, `idle`, `fixed`)          |
+| `capture.network_wait_delay_ms` | `500`         | Delay for `fixed` network wait in milliseconds               |
+| `capture.parallel`              | `4`           | Concurrent browser tabs for capturing                        |
+| `capture.chrome_url`            | -             | Remote Chrome DevTools URL (e.g. Docker)                     |
 
-### Source: PDF
+### Diff
 
-| Option                 | Default | Description                   |
-| ---------------------- | ------- | ----------------------------- |
-| `sources.pdf.manifest` | -       | Path to PDF manifest file     |
-| `sources.pdf.dpi`      | `144`   | Default render resolution     |
-| `sources.pdf.merge`    | `false` | Stack pages into single image |
+| Option           | Default | Description                                |
+| ---------------- | ------- | ------------------------------------------ |
+| `diff.threshold` | `0.0`   | Max allowed diff score (0.0 = exact match) |
 
 ## Override Precedence
 
