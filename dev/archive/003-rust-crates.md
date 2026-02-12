@@ -70,12 +70,12 @@ rust/
 
 ## Crates
 
-| Crate             | Type    | Published | Description                                                |
-| ----------------- | ------- | --------- | ---------------------------------------------------------- |
-| `snapvrt`         | Binary  | crates.io | Main CLI, HTTP server, orchestration                       |
+| Crate             | Type    | Published | Description                                              |
+| ----------------- | ------- | --------- | -------------------------------------------------------- |
+| `snapvrt`         | Binary  | crates.io | Main CLI, HTTP server, orchestration                     |
 | `snapvrt-wire`    | Library | Internal  | Shared types, wire contract between CLI ↔ capture ↔ diff |
-| `snapvrt-capture` | Binary  | Container | Screenshot + PDF service (Chrome, PDFium)                  |
-| `snapvrt-diff`    | Binary  | Container | Diff service (image comparison)                            |
+| `snapvrt-capture` | Binary  | Container | Screenshot + PDF service (Chrome, PDFium)                |
+| `snapvrt-diff`    | Binary  | Container | Diff service (image comparison)                          |
 
 ### Why These Names
 

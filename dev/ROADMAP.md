@@ -1,137 +1,130 @@
 # Roadmap
 
-## Phase 0: Validate (PoCs)
+## Completed
 
-Minimal prototypes to validate core assumptions before building the full solution. Each PoC is a standalone Rust example or project — throwaway code that proves a capability works.
+### Phase 0: Validate (PoCs) ✅
 
-### 0.1 Storybook 10 example project ✅
+Four PoCs validated core assumptions. All findings integrated into the main crate.
 
-Create a minimal Storybook 10 project in `examples/storybook-basic/`. A few simple components with stories. This serves two purposes:
+| PoC | What                         | Outcome                                                         |
+| --- | ---------------------------- | --------------------------------------------------------------- |
+| 0.1 | Storybook 10 example project | `examples/storybook-basic/` — validates index.json API          |
+| 0.2 | CDP screenshot capture       | cdp-raw won — per-target WebSockets, true multi-tab parallelism |
+| 0.3 | Storybook source discovery   | index.json parsing, story filtering, `snapvrt-skip` tag         |
+| 0.4 | Image diff engine comparison | dify won — YIQ perceptual + anti-aliasing, MIT, 44ms            |
 
-- Validate the `index.json` API format assumed in the spec
-- Become the example project for snapvrt users later
+PoC code lives in git history (commits #2-#5). Production code is in `rust/crates/snapvrt/`.
 
-### 0.2 PoC: CDP screenshot capture ✅
+### Phase 1-3: Core CLI ✅
 
-Three PoCs compared (`rust/poc/CDP-COMPARISON.md`):
+Architecture pivoted from 4-crate microservices to single binary with in-process capture and diff. See `dev/archive/010-docker-first.md` for the rationale.
 
-- **chromiumoxide** — async/tokio, browser-pool for parallelism (multi-tab broken)
-- **headless_chrome** — sync, multi-tab works but ~4x slower due to mutex contention
-- **cdp-raw** — direct per-target WebSockets via tokio-tungstenite (**winner**)
+**What's working:**
 
-cdp-raw gives true multi-tab parallelism in a single browser (~150 MB/tab vs ~1.1 GB/browser), using ~300 lines of custom CDP transport. Production `snapvrt-capture` will use this approach instead of chromiumoxide.
+- Config system (TOML file + env vars + CLI flags, with validation)
+- Storybook discovery (index.json fetch, story filtering, iframe URL building)
+- CDP integration (local Chrome launch, remote connect via `--chrome-url`, tab management)
+- 9-stage capture pipeline (viewport, navigate, load, network idle, animations, ready, story root, clip, screenshot)
+- Screenshot stability (up to 3 consecutive byte-identical shots)
+- Web Animations API control (finish finite, cancel infinite)
+- 2-phase diff (memcmp fast path → dify perceptual diff)
+- Dimension mismatch handling (magenta padding)
+- Snapshot store (`.snapvrt/{reference,current,difference}/`)
+- All 6 CLI commands: `init`, `test`, `update`, `approve`, `review`, `prune`
+- Terminal reporter (color output, progress, timing tables, actionable summary)
+- Static HTML report generation
 
-**Validated:** CDP transport, ready detection (fonts + DOM stability), screenshot cropping, multi-tab parallelism, Chrome launch flags for background tab throttling.
+**~3,500 lines of Rust** across 32 source files.
 
-### 0.3 PoC: Storybook source discovery ✅
+### Phase 4: Output (Partial) ✅
 
-Standalone Rust binary that:
-
-1. Fetches `http://localhost:6006/index.json`
-2. Parses the response
-3. Filters to `type: "story"`, excludes `snapvrt-skip` tag
-4. Prints the list of story IDs and URLs
-
-Run against the example project from 0.1.
-
-**Validates:** Storybook 10 index.json format, story filtering logic.
-
-### 0.4 PoC: Image diff engine comparison ✅
-
-Compared three diff engines (`rust/poc/image-diff/`):
-
-| Engine   | Crate           | Score (4a→4b) | Time  | Anti-alias |
-| -------- | --------------- | ------------- | ----- | ---------- |
-| **dify** | `dify`          | 0.032         | 44ms  | yes        |
-| pixel    | (custom)        | 0.057         | 13ms  | no         |
-| ssim     | `image-compare` | 0.167         | 248ms | no         |
-
-**Winner: dify** — YIQ perceptual pixel diff (same algorithm as pixelmatch) with anti-aliasing detection. MIT licensed, pure Rust, no FFI/WASM needed.
-
-**Validates:** diff engine selection, `DiffEngine` trait design, diff image generation.
-
-### Outcome
-
-Findings from PoCs feed back into the design docs. Update architecture and protocols if assumptions were wrong.
+- Terminal reporter: done
+- Static HTML report: done
+- Review as live HTTP server: not done (review generates static HTML, not a server with approve actions)
 
 ---
 
-## Phase 1: Foundation
+## Next Up
 
-Build the real crates based on validated PoCs.
+### Docker Integration
 
-- `snapvrt-wire` — shared types (`Viewport`, `Png`, `CompareResult`, `DiffResult`, protocol constants)
-- `snapvrt-capture` — HTTP server wrapping the CDP screenshot PoC (web only, PDF later)
-- `snapvrt-diff` — HTTP server wrapping the dify PoC
-- Docker images for both
+**Priority: highest.** This is the gap between "works on developer's machine" and "works for users."
 
-**Milestone:** Can `POST /screenshot/web` to a capture container and get a PNG back. Can `POST /diff` to a diff container with two PNGs and get a score.
+Currently the tool either launches a local Chrome or connects to `--chrome-url`. Docker integration makes it zero-config.
 
-## Phase 2: CLI Core
+- [ ] Add `bollard` dependency for Docker API
+- [ ] Build `ghcr.io/snapvrt/chrome` image (Debian slim + Chromium + pinned fonts)
+- [ ] `docker/` module: pull image, start/stop container, health check polling
+- [ ] Quick mode (default): auto-start Chrome container before capture, auto-stop after
+- [ ] Long-running mode: `snapvrt docker start/stop/status` for faster iteration
+- [ ] `--local` flag: current behavior (launch local Chrome, no container)
+- [ ] Container labels for orphan cleanup (`snapvrt.managed=true`, `snapvrt.session=<uuid>`)
 
-- `config` — TOML loading, env vars, CLI flag merging
-- `store` — `.snapvrt/` filesystem operations (read/write snapshots, atomic writes)
-- `pool` — `WorkerPool` trait, `DockerPool` (bollard), `StaticPool`
-  - Container lifecycle: auto-start, health-check polling (100ms/5s), cleanup on exit
-  - Chrome readiness: retry loop on `GET /json/version` instead of single attempt
-- `orchestrator` — discover → capture → compare → report pipeline
-- `sources/storybook` — story discovery + URL building
-- Storybook error detection — check `.sb-show-errordisplay` after navigation, report as capture failure
-- `clients/capture`, `clients/diff` — typed HTTP clients
-- `compare` — 2-phase diff pipeline (memcmp → diff)
-- Investigate `captureBeyondViewport: true` in CDP screenshot — would remove viewport resize + 500ms settle delay for tall content, and avoid layout reflow from viewport units changing
+**Milestone:** `snapvrt test` works out of the box with only Docker installed. No manual Chrome setup.
 
-**Milestone:** `cargo run -- test` works end-to-end against a running Storybook.
+### Test Infrastructure
 
-## Phase 3: CLI Commands
+Currently only `compare/diff.rs` has tests. Priority areas:
 
-- `init` — create `.snapvrt/` directory, config, gitignore
-- `test` — full test run with exit codes
-- `update` — capture references directly
-- `approve` — copy current → reference (with filters)
-- `prune` — remove orphaned references
+- [ ] Config parsing (unit tests for validation, merge, defaults)
+- [ ] Store operations (unit tests for read/write/list/clean)
+- [ ] Storybook discovery (integration test with mock HTTP server)
+- [ ] Full `snapvrt test` against `examples/storybook-basic/` (e2e)
+- [ ] CI pipeline (GitHub Actions)
 
-**Milestone:** All batch CLI commands work. Can run in CI.
+### npm Distribution
 
-## Phase 4: Output
+Distribute the binary via npm for lower adoption friction (`npx snapvrt`). Reference: dify project uses platform-specific binary packages.
 
-- `reporter` — terminal output (progress bars, summary, symbols)
-- HTML report generation (static, file-referenced images)
-- `review` — lightweight HTTP server serving review UI + approve actions
-
-**Milestone:** `snapvrt review` opens browser with side-by-side diffs.
-
-## Phase 5: PDF Support
-
-- `snapvrt-capture` — add `/screenshot/pdf` endpoint (pdfium-render)
-- `sources/pdf` — manifest parsing, metadata extraction (lopdf)
-- Multi-page snapshot support (per-page directories, manifest.json)
-- Page count change detection (synthetic diffs for added/removed pages)
-
-**Milestone:** `snapvrt test pdf` works with a PDF manifest.
-
-## Phase 6: Service Mode (v1.1)
-
-- `server` — HTTP API (axum) wrapping the orchestrator
-- Service detection (health check probing)
-- Container idle timeout management
-- `@snapvrt/client` — JS HTTP client
-- `@snapvrt/jest` — Jest matchers
-- `@snapvrt/vitest` — Vitest matchers
-- Resolve deferred Q1-Q6 from 003-rust-crates.md
-
-**Milestone:** `snapvrt service start` + `npm test` with Jest matchers works.
+- [ ] `snapvrt` npm package (optionalDependencies on platform packages)
+- [ ] `@snapvrt/cli-{platform}` packages (darwin-arm64, darwin-x64, linux-x64, linux-arm64)
+- [ ] Post-install script that verifies binary works
 
 ---
 
-## Cross-Cutting: Test Strategy
+## Later
 
-Each phase should include tests for the code it introduces:
+### PDF Support
 
-- **Unit tests** — config parsing, store operations, compare logic, protocol serialization
-- **Integration tests** — real containers (capture + diff) with test fixtures
-- **End-to-end tests** — full `snapvrt test` against the example Storybook from Phase 0.1
-- **Golden tests** — HTML report output against known-good snapshots
-- **CI pipeline** — run the above on every PR
+In-process PDF rendering via pdfium-render (BSD-3, same engine Chrome uses).
 
-Define concrete test coverage expectations as each phase is implemented.
+- [ ] Add `pdfium-render` dependency
+- [ ] PDF → PNG rendering (per-page)
+- [ ] PDF manifest file (`snapvrt-pdfs.json`) support
+- [ ] Multi-page snapshot storage
+- [ ] Page count change detection
+
+### Review UI Improvements
+
+- [ ] `snapvrt review` as live HTTP server (not just static HTML)
+- [ ] Approve actions from the review UI
+- [ ] WebSocket for live updates during test runs
+
+### Service Mode (v1.1)
+
+HTTP API wrapping the CLI for programmatic use from test frameworks.
+
+- [ ] `snapvrt service start/stop` — HTTP server (axum)
+- [ ] `@snapvrt/client` — JS HTTP client
+- [ ] `@snapvrt/jest` — Jest async matchers (`toMatchPdfSnapshot`, `toMatchWebSnapshot`)
+- [ ] `@snapvrt/vitest` — Vitest async matchers
+
+### Nice to Have
+
+- Storybook error detection (`.sb-show-errordisplay` check after navigation)
+- Element masking (cover dynamic elements with solid overlays before capture)
+- Per-story configuration via `parameters.snapvrt` in story metadata
+- `--auto-add-new` flag for development convenience
+- Multi-source support (multiple Storybook instances, web pages)
+- `--fail-fast` flag
+- Podman/Colima documentation and testing
+
+---
+
+## Research References
+
+| Doc                             | Purpose                                                   |
+| ------------------------------- | --------------------------------------------------------- |
+| `dev/008-screenshot-capture.md` | Screenshot capture best practices survey across OSS tools |
+| `dev/009-audit.md`              | Full audit of docs vs implementation (2026-02-12)         |
+| `dev/archive/`                  | Original design docs (superseded by architecture pivot)   |

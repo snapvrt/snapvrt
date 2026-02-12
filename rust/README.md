@@ -79,14 +79,14 @@ docker stop snapvrt-chrome
 docker rm snapvrt-chrome
 ```
 
-| Docker flag | Purpose |
-| --- | --- |
-| `-p 9222:9222` | Expose CDP port to host |
-| `--shm-size=4g` | Chrome needs shared memory for stability |
-| `--cap-add=SYS_ADMIN` | Chrome sandboxing workaround |
-| `--disable-gpu` | Prevent GPU rendering variance |
+| Docker flag                     | Purpose                                                                       |
+| ------------------------------- | ----------------------------------------------------------------------------- |
+| `-p 9222:9222`                  | Expose CDP port to host                                                       |
+| `--shm-size=4g`                 | Chrome needs shared memory for stability                                      |
+| `--cap-add=SYS_ADMIN`           | Chrome sandboxing workaround                                                  |
+| `--disable-gpu`                 | Prevent GPU rendering variance                                                |
 | `--disable-software-rasterizer` | Prevent GPU process crash loop under emulation (e.g. Docker on Apple Silicon) |
-| `--hide-scrollbars` | Prevent scrollbars in captures |
+| `--hide-scrollbars`             | Prevent scrollbars in captures                                                |
 
 When `--chrome-url` is set, localhost URLs in story paths are automatically rewritten to the host's real LAN IP address so Chrome inside Docker can reach the host's Storybook. If IP detection fails (e.g. no network), it falls back to `host.docker.internal`.
 
