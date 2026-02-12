@@ -2,7 +2,7 @@
 
 Status: Active | Date: 2026-02-12
 
-This is the single source of truth for the snapvrt system architecture. For historical context on earlier designs, see `dev/archive/`.
+This is the single source of truth for the snapvrt system architecture.
 
 ## Overview
 
@@ -43,7 +43,7 @@ snapvrt test
 - The earlier design had 4 crates and separate HTTP services for capture and diff
 - With diff running in-process and capture being a direct CDP connection, there's nothing for the services to do
 - One crate eliminates protocol versioning, compile-time overhead, and deployment complexity
-- If capture/diff ever need to become services again (cloud scaling), the wire protocols from the original spec (archived in `dev/archive/004-protocols.md`) can be revived
+- If capture/diff ever need to become services again (cloud scaling), the wire protocols from the original spec (see git history, `design/initial-spec` branch) can be revived
 
 ## Crate Structure
 
@@ -239,7 +239,7 @@ snapvrt prune [--dry-run] [--yes]          Delete orphaned references
 
 ## Docker Integration (Planned)
 
-**Not yet implemented.** Design from `dev/archive/010-docker-first.md`:
+**Not yet implemented.** Design outline:
 
 - Image: `ghcr.io/snapvrt/chrome` — Debian slim + Chromium + pinned fonts (Liberation, Noto CJK, Noto Emoji)
 - Container management via bollard crate (Docker-compatible API)

@@ -35,10 +35,6 @@ Visual regression testing for Storybook. Snap. Test. Ship.
 | [Getting Started](../docs/getting-started.md) | Installation and first use                 |
 | [CI Integration](../docs/ci-integration.md)   | GitHub Actions setup                       |
 
-### Archive
-
-Original design docs from the initial spec phase (pre-architecture-pivot) are in [`dev/archive/`](archive/). They describe a 4-crate microservices architecture that was replaced by a single-binary design. Kept for historical context.
-
 ## Quick Reference
 
 **Current state:** Core CLI works end-to-end for Storybook. Docker integration is next.

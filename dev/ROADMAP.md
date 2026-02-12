@@ -17,7 +17,7 @@ PoC code lives in git history (commits #2-#5). Production code is in `rust/crate
 
 ### Phase 1-3: Core CLI ✅
 
-Architecture pivoted from 4-crate microservices to single binary with in-process capture and diff. See `dev/archive/010-docker-first.md` for the rationale.
+Architecture pivoted from 4-crate microservices to single binary with in-process capture and diff.
 
 **What's working:**
 
@@ -127,4 +127,3 @@ HTTP API wrapping the CLI for programmatic use from test frameworks.
 | ------------------------------- | --------------------------------------------------------- |
 | `dev/008-screenshot-capture.md` | Screenshot capture best practices survey across OSS tools |
 | `dev/009-audit.md`              | Full audit of docs vs implementation (2026-02-12)         |
-| `dev/archive/`                  | Original design docs (superseded by architecture pivot)   |
