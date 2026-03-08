@@ -1,9 +1,10 @@
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 
 use super::capture::CaptureConfig;
-use super::{Viewport, load, validate_threshold};
+use super::{SourceConfig, Viewport, load, validate_threshold};
 
 /// Values extracted from the CLI that participate in the merge.
 pub struct CliOverrides {
@@ -12,9 +13,21 @@ pub struct CliOverrides {
     pub capture: CaptureConfig,
 }
 
+/// Source-specific resolved configuration.
+pub enum ResolvedSource {
+    Storybook {
+        url: String,
+    },
+    Typst {
+        root: PathBuf,
+        include: Vec<String>,
+        scale: f32,
+    },
+}
+
 /// Fully resolved config after CLI > env > file > defaults merge.
 pub struct ResolvedRunConfig {
-    pub storybook_url: String,
+    pub source: ResolvedSource,
     pub capture: CaptureConfig,
     pub diff_threshold: f64,
     pub viewports: BTreeMap<String, Viewport>,
@@ -37,35 +50,46 @@ impl ResolvedRunConfig {
             .context("SNAPVRT_DIFF_THRESHOLD must be a valid float")?;
 
         // 3. Extract the single source (multi-source is future work)
-        let (source_name, source) = file_config
+        let (source_name, source_config) = file_config
             .source
             .iter()
             .next()
             .context("No sources configured — add a [source.<name>] section")?;
         let source_name = source_name.to_owned();
 
-        // 4. CLI > env > file (highest priority first)
-        let storybook_url = cli
-            .url
-            .or(env_url)
-            .unwrap_or_else(|| source.url().to_owned());
+        // 4. Resolve source-specific config
+        let source = match source_config {
+            SourceConfig::Storybook { url, .. } => {
+                let storybook_url = cli.url.or(env_url).unwrap_or_else(|| url.clone());
+                ResolvedSource::Storybook { url: storybook_url }
+            }
+            SourceConfig::Typst {
+                root,
+                include,
+                scale,
+            } => ResolvedSource::Typst {
+                root: PathBuf::from(root),
+                include: include.clone(),
+                scale: *scale,
+            },
+        };
 
+        // 5. Diff threshold: CLI > env > file
         let diff_threshold = cli
             .threshold
             .or(env_threshold)
             .unwrap_or(file_config.diff.threshold);
         validate_threshold(diff_threshold).map_err(|e| anyhow::anyhow!("{e}"))?;
 
-        // 5. Merge capture: file base, then CLI overlay
+        // 6. Merge capture: file base, then CLI overlay
         let mut capture = file_config.capture;
         capture.merge(&cli.capture);
 
-        // 6. Resolve viewports: if source specifies a subset, filter; otherwise use all
-        let viewports = match source.viewports() {
+        // 7. Resolve viewports: if source specifies a subset, filter; otherwise use all
+        let viewports = match source_config.viewports() {
             Some(selected) => {
                 let mut filtered = BTreeMap::new();
                 for name in selected {
-                    // Validation in Config::validate() already ensures these exist
                     if let Some(vp) = file_config.viewport.get(name) {
                         filtered.insert(name.clone(), vp.clone());
                     }
@@ -76,7 +100,7 @@ impl ResolvedRunConfig {
         };
 
         Ok(Self {
-            storybook_url,
+            source,
             capture,
             diff_threshold,
             viewports,
