@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 pub use self::capture::CaptureConfig;
 pub use self::resolve::{CliOverrides, ResolvedRunConfig};
-pub use self::template::{config_file_exists, write_gitignore, write_template};
+pub use self::template::{InitSourceType, config_file_exists, write_gitignore, write_template};
 
 pub(crate) const CONFIG_DIR: &str = ".snapvrt";
 const CONFIG_FILE: &str = "config.toml";

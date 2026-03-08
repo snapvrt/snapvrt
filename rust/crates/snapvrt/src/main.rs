@@ -26,8 +26,13 @@ async fn main() -> anyhow::Result<()> {
     let cli = cli::Cli::parse();
 
     match cli.command {
-        cli::Command::Init { url, force } => {
-            commands::init(&url, force)?;
+        cli::Command::Init {
+            r#type,
+            url,
+            include,
+            force,
+        } => {
+            commands::init(r#type, &url, &include, force)?;
         }
         cli::Command::Review { open } => {
             commands::review(open)?;
