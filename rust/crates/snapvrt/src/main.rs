@@ -7,6 +7,7 @@ mod config;
 mod report;
 mod store;
 mod storybook;
+mod typst;
 
 use clap::Parser;
 use config::{CliOverrides, ResolvedRunConfig};
