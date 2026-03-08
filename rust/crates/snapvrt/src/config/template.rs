@@ -38,6 +38,7 @@ type = "typst"
 root = "."
 include = ["{include}"]
 # scale = 2.0                      # PNG scale factor (default: 2.0 → 144 PPI)
+# pdf = false                      # also generate PDFs in .snapvrt/pdf/ for debugging
 
 # ─────────────────────────────────────────────────────────
 # Comparison — all fields optional.
@@ -55,7 +56,7 @@ pub fn write_gitignore(force: bool) -> Result<()> {
     if !force && path.exists() {
         return Ok(());
     }
-    std::fs::write(&path, "current/\ndifference/\nreport.html\n")
+    std::fs::write(&path, "current/\ndifference/\npdf/\nreport.html\n")
         .with_context(|| format!("Failed to write {}", path.display()))?;
     Ok(())
 }

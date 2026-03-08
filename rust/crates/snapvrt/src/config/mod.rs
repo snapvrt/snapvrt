@@ -123,6 +123,9 @@ pub enum SourceConfig {
         /// PNG scale factor (default: 2.0 → 144 PPI).
         #[serde(default = "default_typst_scale")]
         scale: f32,
+        /// Also generate PDFs next to snapshots for debugging.
+        #[serde(default)]
+        pdf: bool,
     },
 }
 
