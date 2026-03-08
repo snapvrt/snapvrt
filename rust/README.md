@@ -3,8 +3,8 @@
 ## Prerequisites
 
 - Rust toolchain (stable)
-- A running Storybook instance (default: `http://localhost:6006`) — supports Storybook 8, 9, and 10
-- Chrome/Chromium installed (or Docker for cross-platform consistency)
+- For Storybook sources: a running Storybook instance (default: `http://localhost:6006`) — supports Storybook 8, 9, and 10; Chrome/Chromium installed (or Docker for cross-platform consistency)
+- For Typst sources: [Typst CLI](https://github.com/typst/typst) installed
 
 ## Build
 
@@ -41,6 +41,48 @@ cargo run -p snapvrt -- test --timings
 cargo run -p snapvrt -- review
 cargo run -p snapvrt -- review --open
 ```
+
+## Typst source
+
+snapvrt can render [Typst](https://typst.app) templates directly — no Chrome needed.
+
+```sh
+# Initialize a Typst project
+cargo run -p snapvrt -- init --type typst --include "typst-templates/**/*.typ"
+```
+
+Config example (`.snapvrt/config.toml`):
+
+```toml
+[source.typst]
+type = "typst"
+root = "."
+include = ["typst-templates/test/*.typ"]
+# scale = 2.0                      # PNG scale factor (default: 2.0 → 144 PPI)
+# pdf = false                      # also generate PDFs in .snapvrt/pdf/ for debugging
+```
+
+### Fixture convention
+
+Templates that read external data via `json("data.json")` use **fixture files** for testing. For each template `foo.typ`, create a sibling directory `foo.fixtures/` containing one or more `.json` files:
+
+```
+typst-templates/
+  test/
+    hello.typ                        # reads json("data.json")
+    hello.fixtures/
+      default.json                   # standard test data
+      long-text.json                 # edge case: large body text
+    table-trailing_single-page.typ   # self-contained, no fixtures needed
+```
+
+Each `.json` file becomes a separate snapshot variant. snapvrt temporarily writes the fixture as `data.json` next to the template during compilation and cleans it up after.
+
+Self-contained templates (no `.fixtures/` directory) compile as-is.
+
+### PDF debugging
+
+Set `pdf = true` in `.snapvrt/config.toml` to also generate PDFs in `.snapvrt/pdf/` alongside snapshots. Useful for visual inspection of multi-page templates.
 
 ## Docker Chrome (cross-platform screenshots)
 
