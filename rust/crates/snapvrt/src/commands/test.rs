@@ -8,7 +8,7 @@ use crate::capture::{CaptureOutcome, CapturePlan, CaptureTimings};
 use crate::compare::SnapshotStatus;
 use crate::compare::diff;
 use crate::config::ResolvedRunConfig;
-use crate::report::terminal;
+use crate::report::terminal::{self, GroupTracker};
 use crate::store;
 
 /// `snapvrt test` — discover, capture, compare, report.
@@ -37,6 +37,16 @@ pub async fn test(
         store::clear_output_dirs();
     }
 
+    // Pre-compute orphans so we can include removal info in streaming output.
+    let mut removed_names: Vec<String> = Vec::new();
+    if filter.is_none() {
+        let reference_ids = store::list_reference_ids();
+        let orphans: BTreeSet<&String> = reference_ids.difference(&planned_ids).collect();
+        for id in &orphans {
+            removed_names.push((*id).clone());
+        }
+    }
+
     let run_start = Instant::now();
     let total = run.total();
     let mut rx = run.execute().await?;
@@ -52,8 +62,8 @@ pub async fn test(
     let mut new_names: Vec<String> = Vec::new();
     let mut errored_names: Vec<String> = Vec::new();
 
-    // Collect all results for grouped output.
-    let mut all_results: Vec<(String, SnapshotStatus, Duration)> = Vec::new();
+    let planned_names: Vec<String> = planned_ids.iter().cloned().collect();
+    let mut tracker = GroupTracker::new(&planned_names, &removed_names);
 
     debug!(total, "waiting for capture results");
     while let Some((job, outcome)) = rx.recv().await {
@@ -65,8 +75,10 @@ pub async fn test(
             CaptureOutcome::Err(msg) => {
                 errored += 1;
                 errored_names.push(name.clone());
-                all_results.push((name, SnapshotStatus::Error(msg), Duration::ZERO));
-                terminal::show_progress(done, total);
+                let printed = tracker.add(&name, SnapshotStatus::Error(msg), Duration::ZERO);
+                if !printed {
+                    terminal::show_progress(done, total);
+                }
                 continue;
             }
         };
@@ -136,28 +148,22 @@ pub async fn test(
         }
 
         let elapsed = timings.total + timings.compare;
-        all_results.push((name.clone(), status, elapsed));
+        let printed = tracker.add(&name, status, elapsed);
         all_timings.push((name, timings));
-        terminal::show_progress(done, total);
-    }
-
-    // Orphan detection: only on full (unfiltered) runs.
-    let mut removed_names: Vec<String> = Vec::new();
-    if filter.is_none() {
-        let reference_ids = store::list_reference_ids();
-        let orphans: BTreeSet<&String> = reference_ids.difference(&planned_ids).collect();
-        for id in &orphans {
-            removed_names.push((*id).clone());
-        }
-        if prune {
-            for id in &orphans {
-                store::remove_reference(id);
-            }
+        if !printed {
+            terminal::show_progress(done, total);
         }
     }
 
-    // Print grouped results (replaces per-line streaming output).
-    terminal::print_grouped_results(&all_results, &removed_names);
+    // Print groups that only have removed pages (no captures were planned).
+    tracker.flush_removed();
+
+    // Prune orphans if requested.
+    if prune && filter.is_none() {
+        for id in &removed_names {
+            store::remove_reference(id);
+        }
+    }
 
     if timings {
         terminal::print_timing_table(&all_timings);

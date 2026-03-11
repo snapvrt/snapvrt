@@ -89,16 +89,116 @@ fn display_page_key(key: &str) -> String {
     }
 }
 
-/// Print all snapshot results grouped by template/fixture.
-///
-/// All-pass groups collapse to a single line. Groups with any failure,
-/// new page, or removed page expand to show individual pages.
-pub fn print_grouped_results(results: &[(String, SnapshotStatus, Duration)], removed: &[String]) {
-    let mut groups: BTreeMap<String, TemplateGroup> = BTreeMap::new();
+/// Print a single completed group.
+fn print_group(group_name: &str, g: &TemplateGroup) {
+    let current_count = g.pages.len();
+    let removed_count = g.removed_pages.len();
+    let new_count = g
+        .pages
+        .iter()
+        .filter(|p| matches!(p.status, SnapshotStatus::New))
+        .count();
+    let all_pass = g
+        .pages
+        .iter()
+        .all(|p| matches!(p.status, SnapshotStatus::Pass))
+        && removed_count == 0;
 
-    for (id, status, elapsed) in results {
+    if all_pass {
+        let max_elapsed = g.pages.iter().map(|p| p.elapsed).max().unwrap_or_default();
+        let page_label = if current_count == 1 { "page" } else { "pages" };
+        println!(
+            "  \x1b[32mPASS\x1b[0m  {group_name}  \x1b[2m({current_count} {page_label}, {})\x1b[0m",
+            format_duration(max_elapsed),
+        );
+    } else if current_count == 0 && removed_count > 0 {
+        let page_label = if removed_count == 1 { "page" } else { "pages" };
+        println!("  \x1b[2mGONE  {group_name}  ({removed_count} {page_label} removed)\x1b[0m",);
+    } else {
+        let page_info = if removed_count > 0 || new_count > 0 {
+            let ref_count = current_count - new_count + removed_count;
+            format!("{ref_count}\u{2192}{current_count} pages")
+        } else {
+            let page_label = if current_count == 1 { "page" } else { "pages" };
+            format!("{current_count} {page_label}")
+        };
+        println!("  {group_name}  \x1b[2m({page_info})\x1b[0m");
+
+        for page in &g.pages {
+            let time = format!("  \x1b[2m{}\x1b[0m", format_duration(page.elapsed));
+            let key = display_page_key(&page.page_key);
+            match &page.status {
+                SnapshotStatus::Pass => {
+                    println!("    \x1b[32mPASS\x1b[0m  {key}{time}");
+                }
+                SnapshotStatus::Fail {
+                    diff_pixels,
+                    score,
+                    dimension_mismatch,
+                } => {
+                    if let Some((rw, rh, cw, ch)) = dimension_mismatch {
+                        println!(
+                            "    \x1b[31mFAIL\x1b[0m  {key}  (resized: {rw}x{rh} \u{2192} {cw}x{ch}){time}",
+                        );
+                    } else {
+                        println!(
+                            "    \x1b[31mFAIL\x1b[0m  {key}  (changed: {diff_pixels} pixels, {score:.4}){time}",
+                        );
+                    }
+                }
+                SnapshotStatus::New => {
+                    println!("    \x1b[33m NEW\x1b[0m  {key}  (page added){time}");
+                }
+                SnapshotStatus::Error(msg) => {
+                    println!("    \x1b[31m ERR\x1b[0m  {key}  ({msg}){time}");
+                }
+            }
+        }
+        for page_key in &g.removed_pages {
+            let key = display_page_key(page_key);
+            println!("    \x1b[2mGONE  {key}  (page removed)\x1b[0m");
+        }
+    }
+}
+
+/// Tracks incoming results and prints groups as soon as all their pages arrive.
+pub struct GroupTracker {
+    /// Expected page count per group.
+    expected: BTreeMap<String, usize>,
+    /// Buffered results per group.
+    groups: BTreeMap<String, TemplateGroup>,
+}
+
+impl GroupTracker {
+    /// Build a tracker from the planned snapshot IDs and removed IDs.
+    pub fn new(planned_ids: &[String], removed_ids: &[String]) -> Self {
+        let mut expected: BTreeMap<String, usize> = BTreeMap::new();
+        for id in planned_ids {
+            let (group, _) = split_page_key(id);
+            *expected.entry(group.to_string()).or_insert(0) += 1;
+        }
+
+        let mut groups: BTreeMap<String, TemplateGroup> = BTreeMap::new();
+        for id in removed_ids {
+            let (group, page) = split_page_key(id);
+            groups
+                .entry(group.to_string())
+                .or_insert_with(|| TemplateGroup {
+                    pages: Vec::new(),
+                    removed_pages: Vec::new(),
+                })
+                .removed_pages
+                .push(page.to_string());
+        }
+
+        Self { expected, groups }
+    }
+
+    /// Add a result. If the group is now complete, prints it and returns true.
+    pub fn add(&mut self, id: &str, status: SnapshotStatus, elapsed: Duration) -> bool {
         let (group, page) = split_page_key(id);
-        let entry = groups
+        let entry = self
+            .groups
             .entry(group.to_string())
             .or_insert_with(|| TemplateGroup {
                 pages: Vec::new(),
@@ -106,99 +206,28 @@ pub fn print_grouped_results(results: &[(String, SnapshotStatus, Duration)], rem
             });
         entry.pages.push(PageResult {
             page_key: page.to_string(),
-            status: status.clone(),
-            elapsed: *elapsed,
+            status,
+            elapsed,
         });
-    }
 
-    for id in removed {
-        let (group, page) = split_page_key(id);
-        let entry = groups
-            .entry(group.to_string())
-            .or_insert_with(|| TemplateGroup {
-                pages: Vec::new(),
-                removed_pages: Vec::new(),
-            });
-        entry.removed_pages.push(page.to_string());
-    }
-
-    // Sort pages within each group.
-    for g in groups.values_mut() {
-        g.pages.sort_by(|a, b| a.page_key.cmp(&b.page_key));
-        g.removed_pages.sort();
-    }
-
-    clear_line();
-    for (group_name, g) in &groups {
-        let current_count = g.pages.len();
-        let removed_count = g.removed_pages.len();
-        let new_count = g
-            .pages
-            .iter()
-            .filter(|p| matches!(p.status, SnapshotStatus::New))
-            .count();
-        let all_pass = g
-            .pages
-            .iter()
-            .all(|p| matches!(p.status, SnapshotStatus::Pass))
-            && removed_count == 0;
-
-        if all_pass {
-            // Collapsed: single line for all-pass groups.
-            let max_elapsed = g.pages.iter().map(|p| p.elapsed).max().unwrap_or_default();
-            let page_label = if current_count == 1 { "page" } else { "pages" };
-            println!(
-                "  \x1b[32mPASS\x1b[0m  {group_name}  \x1b[2m({current_count} {page_label}, {})\x1b[0m",
-                format_duration(max_elapsed),
-            );
-        } else if current_count == 0 && removed_count > 0 {
-            // Entirely removed template.
-            let page_label = if removed_count == 1 { "page" } else { "pages" };
-            println!("  \x1b[2mGONE  {group_name}  ({removed_count} {page_label} removed)\x1b[0m",);
+        let expected = self.expected.get(group).copied().unwrap_or(1);
+        if entry.pages.len() >= expected {
+            // Group complete — sort and print.
+            entry.pages.sort_by(|a, b| a.page_key.cmp(&b.page_key));
+            entry.removed_pages.sort();
+            clear_line();
+            print_group(group, entry);
+            true
         } else {
-            // Expanded: show each page.
-            let page_info = if removed_count > 0 || new_count > 0 {
-                let ref_count = current_count - new_count + removed_count;
-                format!("{ref_count}\u{2192}{current_count} pages")
-            } else {
-                let page_label = if current_count == 1 { "page" } else { "pages" };
-                format!("{current_count} {page_label}")
-            };
-            println!("  {group_name}  \x1b[2m({page_info})\x1b[0m");
+            false
+        }
+    }
 
-            for page in &g.pages {
-                let time = format!("  \x1b[2m{}\x1b[0m", format_duration(page.elapsed));
-                let key = display_page_key(&page.page_key);
-                match &page.status {
-                    SnapshotStatus::Pass => {
-                        println!("    \x1b[32mPASS\x1b[0m  {key}{time}");
-                    }
-                    SnapshotStatus::Fail {
-                        diff_pixels,
-                        score,
-                        dimension_mismatch,
-                    } => {
-                        if let Some((rw, rh, cw, ch)) = dimension_mismatch {
-                            println!(
-                                "    \x1b[31mFAIL\x1b[0m  {key}  (resized: {rw}x{rh} \u{2192} {cw}x{ch}){time}",
-                            );
-                        } else {
-                            println!(
-                                "    \x1b[31mFAIL\x1b[0m  {key}  (changed: {diff_pixels} pixels, {score:.4}){time}",
-                            );
-                        }
-                    }
-                    SnapshotStatus::New => {
-                        println!("    \x1b[33m NEW\x1b[0m  {key}  (page added){time}");
-                    }
-                    SnapshotStatus::Error(msg) => {
-                        println!("    \x1b[31m ERR\x1b[0m  {key}  ({msg}){time}");
-                    }
-                }
-            }
-            for page_key in &g.removed_pages {
-                let key = display_page_key(page_key);
-                println!("    \x1b[2mGONE  {key}  (page removed)\x1b[0m");
+    /// Print any remaining groups that only have removed pages (no captures).
+    pub fn flush_removed(&self) {
+        for (group_name, g) in &self.groups {
+            if g.pages.is_empty() && !g.removed_pages.is_empty() {
+                print_group(group_name, g);
             }
         }
     }
