@@ -113,7 +113,7 @@ fn print_group(group_name: &str, g: &TemplateGroup) {
         );
     } else if current_count == 0 && removed_count > 0 {
         let page_label = if removed_count == 1 { "page" } else { "pages" };
-        println!("  \x1b[2mGONE  {group_name}  ({removed_count} {page_label} removed)\x1b[0m",);
+        println!("  \x1b[33mGONE\x1b[0m  {group_name}  \x1b[2m({removed_count} {page_label} removed)\x1b[0m",);
     } else {
         let page_info = if removed_count > 0 || new_count > 0 {
             let ref_count = current_count - new_count + removed_count;
@@ -156,7 +156,7 @@ fn print_group(group_name: &str, g: &TemplateGroup) {
         }
         for page_key in &g.removed_pages {
             let key = display_page_key(page_key);
-            println!("    \x1b[2mGONE  {key}  (page removed)\x1b[0m");
+            println!("    \x1b[33mGONE\x1b[0m  {key}  \x1b[2m(page removed)\x1b[0m");
         }
     }
 }
