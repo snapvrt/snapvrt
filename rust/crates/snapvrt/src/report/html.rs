@@ -1,8 +1,9 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use anyhow::{Context, Result};
 
+use super::{display_page_key, split_page_key};
 use crate::store;
 
 const OUTPUT_FILE: &str = "report.html";
@@ -61,60 +62,110 @@ fn collect_rows() -> Vec<SnapshotRow> {
         .collect()
 }
 
+/// A snapshot row classified as diff or new, with its group/page split.
+struct ActionableRow<'a> {
+    row: &'a SnapshotRow,
+    page_key: String,
+    is_new: bool,
+}
+
 fn build_html(rows: &[SnapshotRow]) -> (String, usize, usize) {
     let created_at = {
         let d = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default();
         let secs = d.as_secs();
-        // Simple UTC timestamp (no chrono dependency)
         let (s, m, h) = (secs % 60, (secs / 60) % 60, (secs / 3600) % 24);
         let days = secs / 86400;
-        // Days since epoch -> year/month/day (good enough for display)
         let (y, mo, d) = epoch_days_to_ymd(days);
         format!("{y:04}-{mo:02}-{d:02}T{h:02}:{m:02}:{s:02}Z")
     };
-    let diff_rows: Vec<&SnapshotRow> = rows.iter().filter(|r| r.has_difference).collect();
-    let new_rows: Vec<&SnapshotRow> = rows
-        .iter()
-        .filter(|r| r.has_current && !r.has_reference && !r.has_difference)
-        .collect();
+
+    let mut diff_count = 0usize;
+    let mut new_count = 0usize;
+
+    // Classify and group actionable rows.
+    let mut groups: BTreeMap<String, Vec<ActionableRow>> = BTreeMap::new();
+    for row in rows {
+        let is_diff = row.has_difference;
+        let is_new = row.has_current && !row.has_reference && !row.has_difference;
+        if !is_diff && !is_new {
+            continue;
+        }
+        if is_diff {
+            diff_count += 1;
+        } else {
+            new_count += 1;
+        }
+        // Strip .png extension for grouping.
+        let id = row.name.strip_suffix(".png").unwrap_or(&row.name);
+        let (group, page_key) = split_page_key(id);
+        groups
+            .entry(group.to_string())
+            .or_default()
+            .push(ActionableRow {
+                row,
+                page_key: page_key.to_string(),
+                is_new,
+            });
+    }
 
     let mut body_rows = String::new();
 
-    for row in &diff_rows {
-        body_rows.push_str(&format!(
-            r#"        <tr>
+    for (group_name, pages) in &groups {
+        let multi_page = pages.len() > 1 || !pages[0].page_key.is_empty();
+
+        if multi_page {
+            // Group header row spanning all columns.
+            body_rows.push_str(&format!(
+                r#"        <tr class="group-header">
+          <td colspan="4">{name} <span class="page-count">{count} {label}</span></td>
+        </tr>
+"#,
+                name = html_escape(group_name),
+                count = pages.len(),
+                label = if pages.len() == 1 { "page" } else { "pages" },
+            ));
+        }
+
+        for ar in pages {
+            let display_name = if multi_page {
+                display_page_key(&ar.page_key)
+            } else {
+                html_escape(group_name)
+            };
+
+            if ar.is_new {
+                body_rows.push_str(&format!(
+                    r#"        <tr>
+          <td class="name">{name} <span class="badge new">NEW</span></td>
+          <td>{reference}</td>
+          <td>{current}</td>
+          <td class="missing">&mdash;</td>
+        </tr>
+"#,
+                    name = display_name,
+                    reference = image_cell("reference", &ar.row.name, ar.row.has_reference),
+                    current = image_cell("current", &ar.row.name, ar.row.has_current),
+                ));
+            } else {
+                body_rows.push_str(&format!(
+                    r#"        <tr>
           <td class="name">{name}</td>
           <td>{reference}</td>
           <td>{current}</td>
           <td>{difference}</td>
         </tr>
 "#,
-            name = html_escape(&row.name),
-            reference = image_cell("reference", &row.name, row.has_reference),
-            current = image_cell("current", &row.name, row.has_current),
-            difference = image_cell("difference", &row.name, row.has_difference),
-        ));
+                    name = display_name,
+                    reference = image_cell("reference", &ar.row.name, ar.row.has_reference),
+                    current = image_cell("current", &ar.row.name, ar.row.has_current),
+                    difference = image_cell("difference", &ar.row.name, ar.row.has_difference),
+                ));
+            }
+        }
     }
 
-    for row in &new_rows {
-        body_rows.push_str(&format!(
-            r#"        <tr>
-          <td class="name">{name} <span class="badge new">NEW</span></td>
-          <td>{reference}</td>
-          <td>{current}</td>
-          <td class="missing">—</td>
-        </tr>
-"#,
-            name = html_escape(&row.name),
-            reference = image_cell("reference", &row.name, row.has_reference),
-            current = image_cell("current", &row.name, row.has_current),
-        ));
-    }
-
-    let diff_count = diff_rows.len();
-    let new_count = new_rows.len();
     let summary = format!("{diff_count} with diff, {new_count} new");
 
     let html = format!(
@@ -142,6 +193,13 @@ fn build_html(rows: &[SnapshotRow]) -> (String, usize, usize) {
     .badge {{ font-size: 11px; padding: 1px 6px; border-radius: 3px; font-weight: 600; }}
     .badge.new {{ background: #fef3c7; color: #92400e; }}
     .empty {{ text-align: center; padding: 48px; color: #52606d; font-size: 16px; }}
+    .group-header td {{
+      background: #f0f4f8; font-weight: 600; font-size: 14px;
+      border-bottom: 2px solid #cbd2d9; padding: 10px 8px;
+    }}
+    .group-header .page-count {{
+      font-weight: 400; color: #52606d; font-size: 12px; margin-left: 6px;
+    }}
   </style>
 </head>
 <body>
@@ -152,9 +210,9 @@ fn build_html(rows: &[SnapshotRow]) -> (String, usize, usize) {
 </html>"##,
         created_at = created_at,
         summary = summary,
-        content = if body_rows.is_empty() {
+        content = if body_rows.is_empty() {{
             r#"<div class="empty">All snapshots pass — nothing to review.</div>"#.to_string()
-        } else {
+        }} else {{
             format!(
                 r#"<table>
     <thead>
@@ -170,7 +228,7 @@ fn build_html(rows: &[SnapshotRow]) -> (String, usize, usize) {
   </table>"#,
                 body_rows = body_rows
             )
-        }
+        }}
     );
 
     (html, diff_count, new_count)
