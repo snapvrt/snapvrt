@@ -1,5 +1,5 @@
 use std::collections::BTreeSet;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use tracing::debug;
@@ -52,6 +52,9 @@ pub async fn test(
     let mut new_names: Vec<String> = Vec::new();
     let mut errored_names: Vec<String> = Vec::new();
 
+    // Collect all results for grouped output.
+    let mut all_results: Vec<(String, SnapshotStatus, Duration)> = Vec::new();
+
     debug!(total, "waiting for capture results");
     while let Some((job, outcome)) = rx.recv().await {
         done += 1;
@@ -62,7 +65,7 @@ pub async fn test(
             CaptureOutcome::Err(msg) => {
                 errored += 1;
                 errored_names.push(name.clone());
-                terminal::print_error_line(&name, &msg);
+                all_results.push((name, SnapshotStatus::Error(msg), Duration::ZERO));
                 terminal::show_progress(done, total);
                 continue;
             }
@@ -132,7 +135,8 @@ pub async fn test(
             }
         }
 
-        terminal::print_line(&name, &status, timings.total + timings.compare);
+        let elapsed = timings.total + timings.compare;
+        all_results.push((name.clone(), status, elapsed));
         all_timings.push((name, timings));
         terminal::show_progress(done, total);
     }
@@ -143,7 +147,6 @@ pub async fn test(
         let reference_ids = store::list_reference_ids();
         let orphans: BTreeSet<&String> = reference_ids.difference(&planned_ids).collect();
         for id in &orphans {
-            terminal::print_removed_line(id);
             removed_names.push((*id).clone());
         }
         if prune {
@@ -152,6 +155,9 @@ pub async fn test(
             }
         }
     }
+
+    // Print grouped results (replaces per-line streaming output).
+    terminal::print_grouped_results(&all_results, &removed_names);
 
     if timings {
         terminal::print_timing_table(&all_timings);
