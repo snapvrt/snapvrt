@@ -287,7 +287,7 @@ fn build_html(rows: &[SnapshotRow]) -> (String, usize, usize) {
         created_at = created_at,
         summary = summary,
         content = if body_rows.is_empty() {
-            { r#"<div class="empty">All snapshots pass — nothing to review.</div>"#.to_string() }
+            r#"<div class="empty">All snapshots pass — nothing to review.</div>"#.to_string()
         } else {
             {
                 format!(
