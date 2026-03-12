@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
-use tracing::debug;
+use tracing::{debug, warn};
 
 /// A data fixture for a template.
 #[derive(Debug, Clone)]
@@ -195,6 +195,16 @@ async fn compile_png(root: &Path, template: &Path, scale: f32) -> Result<Vec<Ren
         bail!(
             "typst compile failed for {}:\n{}",
             template.display(),
+            stderr.trim()
+        );
+    }
+
+    // Show warnings (e.g. missing fonts) even on successful compilation
+    if !output.stderr.is_empty() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        warn!(
+            template = %template.display(),
+            "typst compile warnings:\n{}",
             stderr.trim()
         );
     }
