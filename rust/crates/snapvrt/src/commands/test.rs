@@ -158,7 +158,6 @@ pub async fn test(
     // Print groups that only have removed pages (no captures were planned).
     tracker.flush_removed();
 
-
     // Prune orphans if requested.
     if prune && filter.is_none() {
         for id in &removed_names {

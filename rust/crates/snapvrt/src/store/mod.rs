@@ -122,7 +122,6 @@ pub fn remove_reference(id: &str) {
     }
 }
 
-
 pub fn has_difference(id: &str) -> bool {
     file_path(DIFFERENCE_DIR, id).exists()
 }

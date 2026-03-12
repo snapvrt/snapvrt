@@ -134,9 +134,18 @@ fn build_html(rows: &[SnapshotRow]) -> (String, usize, usize) {
         let multi_page = pages.len() > 1 || !pages[0].page_key.is_empty();
 
         if multi_page {
-            let g_diff = pages.iter().filter(|p| matches!(p.kind, RowKind::Diff)).count();
-            let g_new = pages.iter().filter(|p| matches!(p.kind, RowKind::New)).count();
-            let g_removed = pages.iter().filter(|p| matches!(p.kind, RowKind::Removed)).count();
+            let g_diff = pages
+                .iter()
+                .filter(|p| matches!(p.kind, RowKind::Diff))
+                .count();
+            let g_new = pages
+                .iter()
+                .filter(|p| matches!(p.kind, RowKind::New))
+                .count();
+            let g_removed = pages
+                .iter()
+                .filter(|p| matches!(p.kind, RowKind::Removed))
+                .count();
             let g_ref = ref_counts.get(group_name).copied().unwrap_or(0);
 
             let mut parts = Vec::new();
@@ -277,11 +286,12 @@ fn build_html(rows: &[SnapshotRow]) -> (String, usize, usize) {
 </html>"##,
         created_at = created_at,
         summary = summary,
-        content = if body_rows.is_empty() {{
-            r#"<div class="empty">All snapshots pass — nothing to review.</div>"#.to_string()
-        }} else {{
-            format!(
-                r#"<table>
+        content = if body_rows.is_empty() {
+            { r#"<div class="empty">All snapshots pass — nothing to review.</div>"#.to_string() }
+        } else {
+            {
+                format!(
+                    r#"<table>
     <colgroup>
       <col class="col-name" />
       <col class="col-image" />
@@ -299,9 +309,10 @@ fn build_html(rows: &[SnapshotRow]) -> (String, usize, usize) {
     <tbody>
 {body_rows}    </tbody>
   </table>"#,
-                body_rows = body_rows
-            )
-        }}
+                    body_rows = body_rows
+                )
+            }
+        }
     );
 
     (html, diff_count, new_count)
