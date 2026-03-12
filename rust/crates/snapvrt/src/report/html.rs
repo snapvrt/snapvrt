@@ -62,11 +62,16 @@ fn collect_rows() -> Vec<SnapshotRow> {
         .collect()
 }
 
-/// A snapshot row classified as diff or new, with its group/page split.
+enum RowKind {
+    Diff,
+    New,
+    Removed,
+}
+
 struct ActionableRow<'a> {
     row: &'a SnapshotRow,
     page_key: String,
-    is_new: bool,
+    kind: RowKind,
 }
 
 fn build_html(rows: &[SnapshotRow]) -> (String, usize, usize) {
@@ -83,21 +88,34 @@ fn build_html(rows: &[SnapshotRow]) -> (String, usize, usize) {
 
     let mut diff_count = 0usize;
     let mut new_count = 0usize;
+    let mut removed_count = 0usize;
+
+    // Count reference pages per group (including passing ones).
+    let mut ref_counts: BTreeMap<String, usize> = BTreeMap::new();
+    for row in rows {
+        if row.has_reference {
+            let id = row.name.strip_suffix(".png").unwrap_or(&row.name);
+            let (group, _) = split_page_key(id);
+            *ref_counts.entry(group.to_string()).or_insert(0) += 1;
+        }
+    }
 
     // Classify and group actionable rows.
     let mut groups: BTreeMap<String, Vec<ActionableRow>> = BTreeMap::new();
     for row in rows {
-        let is_diff = row.has_difference;
-        let is_new = row.has_current && !row.has_reference && !row.has_difference;
-        if !is_diff && !is_new {
-            continue;
-        }
-        if is_diff {
+        let kind = if row.has_difference {
             diff_count += 1;
-        } else {
+            RowKind::Diff
+        } else if row.has_current && !row.has_reference {
             new_count += 1;
-        }
-        // Strip .png extension for grouping.
+            RowKind::New
+        } else if row.has_reference && !row.has_current {
+            removed_count += 1;
+            RowKind::Removed
+        } else {
+            continue;
+        };
+
         let id = row.name.strip_suffix(".png").unwrap_or(&row.name);
         let (group, page_key) = split_page_key(id);
         groups
@@ -106,7 +124,7 @@ fn build_html(rows: &[SnapshotRow]) -> (String, usize, usize) {
             .push(ActionableRow {
                 row,
                 page_key: page_key.to_string(),
-                is_new,
+                kind,
             });
     }
 
@@ -116,15 +134,32 @@ fn build_html(rows: &[SnapshotRow]) -> (String, usize, usize) {
         let multi_page = pages.len() > 1 || !pages[0].page_key.is_empty();
 
         if multi_page {
-            // Group header row spanning all columns.
+            let g_diff = pages.iter().filter(|p| matches!(p.kind, RowKind::Diff)).count();
+            let g_new = pages.iter().filter(|p| matches!(p.kind, RowKind::New)).count();
+            let g_removed = pages.iter().filter(|p| matches!(p.kind, RowKind::Removed)).count();
+            let g_ref = ref_counts.get(group_name).copied().unwrap_or(0);
+
+            let mut parts = Vec::new();
+            if g_ref > 0 {
+                parts.push(format!("{g_ref} ref"));
+            }
+            if g_diff > 0 {
+                parts.push(format!("{g_diff} changed"));
+            }
+            if g_new > 0 {
+                parts.push(format!("{g_new} added"));
+            }
+            if g_removed > 0 {
+                parts.push(format!("{g_removed} removed"));
+            }
+            let info = parts.join(", ");
+
             body_rows.push_str(&format!(
                 r#"        <tr class="group-header">
-          <td colspan="4">{name} <span class="page-count">{count} {label}</span></td>
+          <td colspan="4">{name} <span class="page-count">{info}</span></td>
         </tr>
 "#,
                 name = html_escape(group_name),
-                count = pages.len(),
-                label = if pages.len() == 1 { "page" } else { "pages" },
             ));
         }
 
@@ -135,38 +170,67 @@ fn build_html(rows: &[SnapshotRow]) -> (String, usize, usize) {
                 html_escape(group_name)
             };
 
-            if ar.is_new {
-                body_rows.push_str(&format!(
-                    r#"        <tr>
-          <td class="name">{name} <span class="badge new">NEW</span></td>
-          <td>{reference}</td>
+            match ar.kind {
+                RowKind::New => {
+                    body_rows.push_str(&format!(
+                        r#"        <tr>
+          <td class="name">{name}</td>
+          <td class="status-cell new-cell">New page</td>
           <td>{current}</td>
-          <td class="missing">&mdash;</td>
+          <td class="status-cell">&mdash;</td>
         </tr>
 "#,
-                    name = display_name,
-                    reference = image_cell("reference", &ar.row.name, ar.row.has_reference),
-                    current = image_cell("current", &ar.row.name, ar.row.has_current),
-                ));
-            } else {
-                body_rows.push_str(&format!(
-                    r#"        <tr>
+                        name = display_name,
+                        current = image_cell("current", &ar.row.name, true),
+                    ));
+                }
+                RowKind::Removed => {
+                    body_rows.push_str(&format!(
+                        r#"        <tr>
+          <td class="name">{name}</td>
+          <td>{reference}</td>
+          <td class="status-cell removed-cell">Removed</td>
+          <td class="status-cell">&mdash;</td>
+        </tr>
+"#,
+                        name = display_name,
+                        reference = image_cell("reference", &ar.row.name, true),
+                    ));
+                }
+                RowKind::Diff => {
+                    body_rows.push_str(&format!(
+                        r#"        <tr>
           <td class="name">{name}</td>
           <td>{reference}</td>
           <td>{current}</td>
           <td>{difference}</td>
         </tr>
 "#,
-                    name = display_name,
-                    reference = image_cell("reference", &ar.row.name, ar.row.has_reference),
-                    current = image_cell("current", &ar.row.name, ar.row.has_current),
-                    difference = image_cell("difference", &ar.row.name, ar.row.has_difference),
-                ));
+                        name = display_name,
+                        reference = image_cell("reference", &ar.row.name, ar.row.has_reference),
+                        current = image_cell("current", &ar.row.name, ar.row.has_current),
+                        difference = image_cell("difference", &ar.row.name, ar.row.has_difference),
+                    ));
+                }
             }
         }
     }
 
-    let summary = format!("{diff_count} with diff, {new_count} new");
+    let mut summary_parts = Vec::new();
+    if diff_count > 0 {
+        summary_parts.push(format!("{diff_count} with diff"));
+    }
+    if new_count > 0 {
+        summary_parts.push(format!("{new_count} new"));
+    }
+    if removed_count > 0 {
+        summary_parts.push(format!("{removed_count} removed"));
+    }
+    let summary = if summary_parts.is_empty() {
+        "all pass".to_string()
+    } else {
+        summary_parts.join(", ")
+    };
 
     let html = format!(
         r##"<!DOCTYPE html>
@@ -183,13 +247,16 @@ fn build_html(rows: &[SnapshotRow]) -> (String, usize, usize) {
     }}
     h1 {{ margin: 0 0 8px; font-size: 22px; }}
     .meta {{ margin-bottom: 16px; color: #52606d; font-size: 14px; }}
-    table {{ width: 100%; border-collapse: collapse; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }}
+    table {{ width: 100%; border-collapse: collapse; background: #fff; table-layout: fixed; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }}
     th, td {{ border: 1px solid #e4e7eb; padding: 8px; vertical-align: top; text-align: left; }}
     th {{ background: #f0f4f8; font-weight: 600; font-size: 14px; }}
     td img {{ max-width: 100%; height: auto; display: block; background: #fff; }}
-    td {{ width: 25%; }}
-    td.name {{ font-size: 13px; word-break: break-word; width: 25%; }}
-    .missing {{ color: #c81e1e; font-style: italic; font-size: 13px; }}
+    col.col-name {{ width: 80px; }}
+    col.col-image {{ width: calc((100% - 80px) / 3); }}
+    td.name {{ font-size: 13px; word-break: break-word; }}
+    .status-cell {{ text-align: center; vertical-align: middle; color: #52606d; font-style: italic; font-size: 13px; }}
+    .new-cell {{ background: #fefce8; color: #92400e; font-weight: 600; font-style: normal; }}
+    .removed-cell {{ background: #fef2f2; color: #991b1b; font-weight: 600; font-style: normal; }}
     .badge {{ font-size: 11px; padding: 1px 6px; border-radius: 3px; font-weight: 600; }}
     .badge.new {{ background: #fef3c7; color: #92400e; }}
     .empty {{ text-align: center; padding: 48px; color: #52606d; font-size: 16px; }}
@@ -215,9 +282,15 @@ fn build_html(rows: &[SnapshotRow]) -> (String, usize, usize) {
         }} else {{
             format!(
                 r#"<table>
+    <colgroup>
+      <col class="col-name" />
+      <col class="col-image" />
+      <col class="col-image" />
+      <col class="col-image" />
+    </colgroup>
     <thead>
       <tr>
-        <th>Name</th>
+        <th></th>
         <th>Reference</th>
         <th>Current</th>
         <th>Difference</th>

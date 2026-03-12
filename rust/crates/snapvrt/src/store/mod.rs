@@ -49,11 +49,6 @@ pub fn read_reference(id: &str) -> Option<Vec<u8>> {
     std::fs::read(&path).ok()
 }
 
-pub fn clean_output(id: &str) {
-    let _ = std::fs::remove_file(file_path(CURRENT_DIR, id));
-    let _ = std::fs::remove_file(file_path(DIFFERENCE_DIR, id));
-}
-
 /// Remove all files from `current/` and `difference/` directories.
 pub fn clear_output_dirs() {
     for subdir in [CURRENT_DIR, DIFFERENCE_DIR] {
@@ -127,8 +122,13 @@ pub fn remove_reference(id: &str) {
     }
 }
 
+
 pub fn has_difference(id: &str) -> bool {
     file_path(DIFFERENCE_DIR, id).exists()
+}
+
+pub fn has_reference(id: &str) -> bool {
+    file_path(REFERENCE_DIR, id).exists()
 }
 
 pub fn read_current(id: &str) -> Option<Vec<u8>> {

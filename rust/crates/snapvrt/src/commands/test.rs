@@ -102,7 +102,7 @@ pub async fn test(
                         SnapshotStatus::Error(format!("{e:#}"))
                     }
                     Ok(result) if result.is_match || result.score <= threshold => {
-                        store::clean_output(&name);
+                        store::write_current(&name, &current_png)?;
                         SnapshotStatus::Pass
                     }
                     Ok(result) => {
@@ -157,6 +157,7 @@ pub async fn test(
 
     // Print groups that only have removed pages (no captures were planned).
     tracker.flush_removed();
+
 
     // Prune orphans if requested.
     if prune && filter.is_none() {
