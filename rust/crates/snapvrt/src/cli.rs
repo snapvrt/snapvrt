@@ -59,6 +59,9 @@ pub enum Command {
         /// Delete orphaned reference snapshots that no longer match any story
         #[arg(long)]
         prune: bool,
+        /// Generate HTML review report after testing
+        #[arg(long)]
+        review: bool,
         #[command(flatten)]
         capture: CaptureConfig,
     },

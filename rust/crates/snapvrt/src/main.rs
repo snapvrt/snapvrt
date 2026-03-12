@@ -43,6 +43,7 @@ async fn main() -> anyhow::Result<()> {
             threshold,
             timings,
             prune,
+            review,
             capture,
         } => {
             let overrides = CliOverrides {
@@ -52,6 +53,9 @@ async fn main() -> anyhow::Result<()> {
             };
             let config = ResolvedRunConfig::new(overrides)?;
             let code = commands::test(config, filter.as_deref(), timings, prune).await?;
+            if review {
+                commands::review(false)?;
+            }
             std::process::exit(code);
         }
         cli::Command::Prune {
