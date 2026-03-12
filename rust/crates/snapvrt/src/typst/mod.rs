@@ -117,6 +117,8 @@ pub struct CompileOptions<'a> {
     pub scale: f32,
     /// If set, also compile a PDF and write it to this path.
     pub pdf_path: Option<PathBuf>,
+    /// Additional font search paths passed as `--font-path` to typst.
+    pub font_paths: &'a [String],
 }
 
 /// Compile a single Typst template to PNG pages.
@@ -152,18 +154,23 @@ pub async fn compile(opts: &CompileOptions<'_>) -> Result<Vec<RenderedPage>> {
         None
     };
 
-    let pages = compile_png(opts.root, opts.template, opts.scale).await?;
+    let pages = compile_png(opts.root, opts.template, opts.scale, opts.font_paths).await?;
 
     // Optionally compile PDF for debugging
     if let Some(ref pdf_path) = opts.pdf_path {
-        compile_pdf(opts.root, opts.template, pdf_path).await?;
+        compile_pdf(opts.root, opts.template, pdf_path, opts.font_paths).await?;
     }
 
     Ok(pages)
 }
 
 /// Compile a template to PNG pages in a temp directory.
-async fn compile_png(root: &Path, template: &Path, scale: f32) -> Result<Vec<RenderedPage>> {
+async fn compile_png(
+    root: &Path,
+    template: &Path,
+    scale: f32,
+    font_paths: &[String],
+) -> Result<Vec<RenderedPage>> {
     let ppi = (scale * 72.0).round() as u32;
     let temp_dir = tempfile::tempdir().context("Failed to create temp dir for typst output")?;
     let output_pattern = temp_dir.path().join("{p}.png");
@@ -175,9 +182,11 @@ async fn compile_png(root: &Path, template: &Path, scale: f32) -> Result<Vec<Ren
         .arg("--ppi")
         .arg(ppi.to_string())
         .arg("--root")
-        .arg(root)
-        .arg(template)
-        .arg(&output_pattern);
+        .arg(root);
+    for fp in font_paths {
+        cmd.arg("--font-path").arg(fp);
+    }
+    cmd.arg(template).arg(&output_pattern);
 
     debug!(
         template = %template.display(),
@@ -241,7 +250,12 @@ async fn compile_png(root: &Path, template: &Path, scale: f32) -> Result<Vec<Ren
 }
 
 /// Compile a template to PDF and write it to the given path.
-async fn compile_pdf(root: &Path, template: &Path, pdf_path: &Path) -> Result<()> {
+async fn compile_pdf(
+    root: &Path,
+    template: &Path,
+    pdf_path: &Path,
+    font_paths: &[String],
+) -> Result<()> {
     if let Some(parent) = pdf_path.parent() {
         std::fs::create_dir_all(parent)
             .with_context(|| format!("Failed to create {}", parent.display()))?;
@@ -252,9 +266,11 @@ async fn compile_pdf(root: &Path, template: &Path, pdf_path: &Path) -> Result<()
         .arg("--format")
         .arg("pdf")
         .arg("--root")
-        .arg(root)
-        .arg(template)
-        .arg(pdf_path);
+        .arg(root);
+    for fp in font_paths {
+        cmd.arg("--font-path").arg(fp);
+    }
+    cmd.arg(template).arg(pdf_path);
 
     debug!(
         template = %template.display(),

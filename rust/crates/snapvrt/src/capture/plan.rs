@@ -38,7 +38,8 @@ impl CapturePlan {
                 include,
                 scale,
                 pdf,
-            } => Self::plan_typst(config, root, include, *scale, *pdf, filter).await,
+                font_paths,
+            } => Self::plan_typst(config, root, include, *scale, *pdf, font_paths, filter).await,
         }
     }
 
@@ -115,6 +116,7 @@ impl CapturePlan {
         include: &[String],
         scale: f32,
         pdf: bool,
+        font_paths: &[String],
         filter: Option<&str>,
     ) -> Result<Self> {
         let templates = typst::discover(include)?;
@@ -154,6 +156,7 @@ impl CapturePlan {
                     fixture: None,
                     scale,
                     pdf_path,
+                    font_paths,
                 };
 
                 compile_template(
@@ -184,6 +187,7 @@ impl CapturePlan {
                         fixture: Some(fixture),
                         scale,
                         pdf_path,
+                        font_paths,
                     };
 
                     compile_template(

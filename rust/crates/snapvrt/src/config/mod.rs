@@ -126,6 +126,9 @@ pub enum SourceConfig {
         /// Also generate PDFs next to snapshots for debugging.
         #[serde(default)]
         pdf: bool,
+        /// Additional font search paths passed as `--font-path` to typst.
+        #[serde(default)]
+        font_paths: Vec<String>,
     },
 }
 

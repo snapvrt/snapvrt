@@ -23,6 +23,7 @@ pub enum ResolvedSource {
         include: Vec<String>,
         scale: f32,
         pdf: bool,
+        font_paths: Vec<String>,
     },
 }
 
@@ -69,11 +70,13 @@ impl ResolvedRunConfig {
                 include,
                 scale,
                 pdf,
+                font_paths,
             } => ResolvedSource::Typst {
                 root: PathBuf::from(root),
                 include: include.clone(),
                 scale: *scale,
                 pdf: *pdf,
+                font_paths: font_paths.clone(),
             },
         };
 
