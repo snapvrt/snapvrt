@@ -17,6 +17,9 @@ pub fn init(init_type: InitType, url: &str, include: &str, force: bool) -> Resul
         InitType::Typst => InitSourceType::Typst {
             include: include.to_string(),
         },
+        InitType::Pages => InitSourceType::Pages {
+            url: url.to_string(),
+        },
     };
 
     config::write_template(&source)?;
@@ -27,6 +30,7 @@ pub fn init(init_type: InitType, url: &str, include: &str, force: bool) -> Resul
     match init_type {
         InitType::Storybook => println!("  source type = storybook, url = {url}"),
         InitType::Typst => println!("  source type = typst, include = {include}"),
+        InitType::Pages => println!("  source type = pages, base_url = {url}"),
     }
     Ok(())
 }

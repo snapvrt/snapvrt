@@ -53,9 +53,9 @@ impl Config {
             );
         }
 
-        let has_storybook = self.source.values().any(|s| s.is_storybook());
+        let needs_viewports = self.source.values().any(|s| s.needs_browser());
 
-        if has_storybook && self.viewport.is_empty() {
+        if needs_viewports && self.viewport.is_empty() {
             bail!(
                 "No viewports configured. Add a viewport section, e.g.:\n\n  \
                  [viewport.laptop]\n  \
@@ -98,6 +98,16 @@ impl Config {
                      include = [\"typst-templates/**/*.typ\"]"
                 );
             }
+
+            if let SourceConfig::Pages { pages, .. } = source
+                && pages.is_empty()
+            {
+                bail!(
+                    "Source '{source_name}' (pages) has no pages. \
+                     Add at least one URL path, e.g.:\n\n  \
+                     pages = [\"/en\", \"/en/about\"]"
+                );
+            }
         }
 
         Ok(())
@@ -130,6 +140,16 @@ pub enum SourceConfig {
         #[serde(default)]
         font_paths: Vec<String>,
     },
+    #[serde(rename = "pages")]
+    Pages {
+        /// Base URL of the site (e.g. "http://localhost:3001").
+        base_url: String,
+        /// URL paths to screenshot (e.g. ["/en", "/en/modules"]).
+        pages: Vec<String>,
+        /// Optional: subset of defined viewports to use.
+        #[serde(default)]
+        viewports: Option<Vec<String>>,
+    },
 }
 
 fn default_typst_scale() -> f32 {
@@ -139,13 +159,15 @@ fn default_typst_scale() -> f32 {
 impl SourceConfig {
     pub fn viewports(&self) -> Option<&[String]> {
         match self {
-            Self::Storybook { viewports, .. } => viewports.as_deref(),
+            Self::Storybook { viewports, .. } | Self::Pages { viewports, .. } => {
+                viewports.as_deref()
+            }
             Self::Typst { .. } => None,
         }
     }
 
-    pub fn is_storybook(&self) -> bool {
-        matches!(self, Self::Storybook { .. })
+    pub fn needs_browser(&self) -> bool {
+        matches!(self, Self::Storybook { .. } | Self::Pages { .. })
     }
 }
 

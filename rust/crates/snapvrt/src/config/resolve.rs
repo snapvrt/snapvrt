@@ -25,6 +25,10 @@ pub enum ResolvedSource {
         pdf: bool,
         font_paths: Vec<String>,
     },
+    Pages {
+        base_url: String,
+        pages: Vec<String>,
+    },
 }
 
 /// Fully resolved config after CLI > env > file > defaults merge.
@@ -77,6 +81,12 @@ impl ResolvedRunConfig {
                 scale: *scale,
                 pdf: *pdf,
                 font_paths: font_paths.clone(),
+            },
+            SourceConfig::Pages {
+                base_url, pages, ..
+            } => ResolvedSource::Pages {
+                base_url: cli.url.or(env_url).unwrap_or_else(|| base_url.clone()),
+                pages: pages.clone(),
             },
         };
 

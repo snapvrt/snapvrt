@@ -47,6 +47,36 @@ include = ["{include}"]
 # threshold = 0.0                   # max allowed diff score (0.0 = exact, 0.01 = 1%)
 "#;
 
+const PAGES_TEMPLATE: &str = r#"[source.website]
+type = "pages"
+base_url = "{url}"
+pages = ["/"]
+
+[viewport.laptop]
+width = 1366
+height = 768
+
+[viewport.mobile]
+width = 390
+height = 844
+
+# ─────────────────────────────────────────────────────────
+# Capture pipeline — all fields optional.
+# ─────────────────────────────────────────────────────────
+[capture]
+# screenshot = "stable"             # "stable" | "single" (single is faster)
+# stability_attempts = 3
+# stability_delay_ms = 100
+# parallel = 2                      # concurrent browser tabs
+# chrome_url = "http://localhost:9222"  # remote Chrome (e.g. Docker)
+
+# ─────────────────────────────────────────────────────────
+# Comparison — all fields optional.
+# ─────────────────────────────────────────────────────────
+[diff]
+# threshold = 0.01                  # max allowed diff score (0.0 = exact, 0.01 = 1%)
+"#;
+
 pub fn config_file_exists() -> bool {
     Path::new(CONFIG_DIR).join(CONFIG_FILE).exists()
 }
@@ -76,6 +106,7 @@ pub fn save(config: &super::Config) -> Result<()> {
 pub enum InitSourceType {
     Storybook { url: String },
     Typst { include: String },
+    Pages { url: String },
 }
 
 /// Write the hand-crafted config template (with commented-out sections).
@@ -87,6 +118,7 @@ pub fn write_template(source: &InitSourceType) -> Result<()> {
     let content = match source {
         InitSourceType::Storybook { url } => STORYBOOK_TEMPLATE.replace("{url}", url),
         InitSourceType::Typst { include } => TYPST_TEMPLATE.replace("{include}", include),
+        InitSourceType::Pages { url } => PAGES_TEMPLATE.replace("{url}", url),
     };
     std::fs::write(&path, content)
         .with_context(|| format!("Failed to write {}", path.display()))?;

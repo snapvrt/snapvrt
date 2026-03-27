@@ -40,6 +40,9 @@ impl CapturePlan {
                 pdf,
                 font_paths,
             } => Self::plan_typst(config, root, include, *scale, *pdf, font_paths, filter).await,
+            ResolvedSource::Pages { base_url, pages } => {
+                Self::plan_pages(config, base_url, pages, filter).await
+            }
         }
     }
 
@@ -91,6 +94,72 @@ impl CapturePlan {
                     url: storybook.story_url(story),
                     width: vp.width,
                     height: vp.height,
+                    full_page: false,
+                });
+            }
+        }
+
+        if let Some(pattern) = filter {
+            jobs.retain(|job| job.matches_filter(pattern));
+            if jobs.is_empty() {
+                println!("No snapshots match filter");
+            }
+        }
+
+        Ok(Self {
+            kind: CaptureKind::Chrome {
+                config: config.capture.clone(),
+                jobs,
+            },
+        })
+    }
+
+    async fn plan_pages(
+        config: &ResolvedRunConfig,
+        base_url: &str,
+        pages: &[String],
+        filter: Option<&str>,
+    ) -> Result<Self> {
+        let base_url = base_url.trim_end_matches('/');
+
+        let viewports: Vec<_> = config
+            .viewports
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+
+        let snapshot_count = pages.len() * viewports.len();
+        println!(
+            "{} page(s), {} viewport(s), {snapshot_count} snapshots",
+            pages.len(),
+            viewports.len()
+        );
+        println!();
+
+        let mut jobs: Vec<CaptureJob> = Vec::new();
+        for page_path in pages {
+            let path = page_path.trim_start_matches('/');
+            // Derive a stable name from the path: "/en/modules" → "en/modules"
+            // Root paths like "/en" → "en"
+            let title = if path.is_empty() { "root" } else { path };
+            let name = title.rsplit('/').next().unwrap_or(title);
+
+            let story = Story {
+                id: title.to_string(),
+                name: name.to_string(),
+                title: title.to_string(),
+                tags: vec![],
+            };
+
+            for (vp_name, vp) in &viewports {
+                jobs.push(CaptureJob {
+                    source: config.source_name.clone(),
+                    story: story.clone(),
+                    viewport: vp_name.clone(),
+                    url: format!("{base_url}/{path}"),
+                    width: vp.width,
+                    height: vp.height,
+                    full_page: true,
                 });
             }
         }
@@ -296,6 +365,7 @@ async fn compile_template(
                     url: String::new(),
                     width: 0,
                     height: 0,
+                    full_page: false,
                 };
 
                 let should_include = filter.map(|p| job.matches_filter(p)).unwrap_or(true);
@@ -328,6 +398,7 @@ async fn compile_template(
                 url: String::new(),
                 width: 0,
                 height: 0,
+                full_page: false,
             };
             results.push((job, CaptureOutcome::Err(format!("{e:#}"))));
         }

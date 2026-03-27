@@ -38,6 +38,12 @@ pub async fn get_clip(conn: &mut CdpConnection) -> Result<ClipRect> {
     parse_bounds_result(&result)
 }
 
+/// Get the clip region from the document body (for full-page captures).
+pub async fn get_body_clip(conn: &mut CdpConnection) -> Result<ClipRect> {
+    let result = conn.eval(scripts::GET_BODY_BOUNDS_JS).await?;
+    parse_bounds_result(&result)
+}
+
 #[derive(Deserialize)]
 struct ClipBounds {
     x: f64,

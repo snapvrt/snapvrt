@@ -7,6 +7,7 @@ use crate::config::CaptureConfig;
 pub enum InitType {
     Storybook,
     Typst,
+    Pages,
 }
 
 fn parse_threshold(s: &str) -> Result<f64, String> {
@@ -28,7 +29,7 @@ pub struct Cli {
 pub enum Command {
     /// Create .snapvrt/config.toml with default settings
     Init {
-        /// Source type: "storybook" or "typst"
+        /// Source type: "storybook", "typst", or "pages"
         #[arg(long, rename_all = "kebab-case", default_value = "storybook")]
         r#type: InitType,
         /// Storybook URL (for storybook source)
