@@ -6,6 +6,7 @@ pub const BASE_DIR: &str = ".snapvrt";
 pub const REFERENCE_DIR: &str = "reference";
 pub const CURRENT_DIR: &str = "current";
 pub const DIFFERENCE_DIR: &str = "difference";
+pub const PDF_DIR: &str = "pdf";
 
 fn ensure_parent(path: &Path) -> Result<()> {
     if let Some(parent) = path.parent() {
@@ -46,11 +47,6 @@ pub fn write_difference(id: &str, png: &[u8]) -> Result<()> {
 pub fn read_reference(id: &str) -> Option<Vec<u8>> {
     let path = file_path(REFERENCE_DIR, id);
     std::fs::read(&path).ok()
-}
-
-pub fn clean_output(id: &str) {
-    let _ = std::fs::remove_file(file_path(CURRENT_DIR, id));
-    let _ = std::fs::remove_file(file_path(DIFFERENCE_DIR, id));
 }
 
 /// Remove all files from `current/` and `difference/` directories.
@@ -130,7 +126,18 @@ pub fn has_difference(id: &str) -> bool {
     file_path(DIFFERENCE_DIR, id).exists()
 }
 
+pub fn has_reference(id: &str) -> bool {
+    file_path(REFERENCE_DIR, id).exists()
+}
+
 pub fn read_current(id: &str) -> Option<Vec<u8>> {
     let path = file_path(CURRENT_DIR, id);
     std::fs::read(&path).ok()
+}
+
+/// Get the path where a PDF should be stored for a given ID.
+/// ID should be `{source}/default/{template_stem}` or
+/// `{source}/default/{template_stem}/{fixture_name}`.
+pub fn pdf_path(id: &str) -> std::path::PathBuf {
+    Path::new(BASE_DIR).join(PDF_DIR).join(format!("{id}.pdf"))
 }

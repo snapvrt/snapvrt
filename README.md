@@ -2,7 +2,7 @@
 
 Snap. Test. Ship.
 
-Visual regression testing for Storybook 10+ and PDFs.
+Visual regression testing for Storybook and Typst templates.
 
 > **Status:** In development. Not yet ready for use.
 

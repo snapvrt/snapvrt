@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 pub use self::capture::CaptureConfig;
 pub use self::resolve::{CliOverrides, ResolvedRunConfig};
-pub use self::template::{config_file_exists, write_gitignore, write_template};
+pub use self::template::{InitSourceType, config_file_exists, write_gitignore, write_template};
 
 pub(crate) const CONFIG_DIR: &str = ".snapvrt";
 const CONFIG_FILE: &str = "config.toml";
@@ -53,7 +53,9 @@ impl Config {
             );
         }
 
-        if self.viewport.is_empty() {
+        let has_storybook = self.source.values().any(|s| s.is_storybook());
+
+        if has_storybook && self.viewport.is_empty() {
             bail!(
                 "No viewports configured. Add a viewport section, e.g.:\n\n  \
                  [viewport.laptop]\n  \
@@ -86,6 +88,16 @@ impl Config {
                     }
                 }
             }
+
+            if let SourceConfig::Typst { include, .. } = source
+                && include.is_empty()
+            {
+                bail!(
+                    "Source '{source_name}' (typst) has no include patterns. \
+                     Add at least one glob pattern, e.g.:\n\n  \
+                     include = [\"typst-templates/**/*.typ\"]"
+                );
+            }
         }
 
         Ok(())
@@ -101,19 +113,39 @@ pub enum SourceConfig {
         #[serde(default)]
         viewports: Option<Vec<String>>,
     },
+    #[serde(rename = "typst")]
+    Typst {
+        /// Root directory for `typst compile --root` (import resolution).
+        root: String,
+        /// Glob patterns to discover .typ files (relative to working dir).
+        #[serde(default)]
+        include: Vec<String>,
+        /// PNG scale factor (default: 2.0 → 144 PPI).
+        #[serde(default = "default_typst_scale")]
+        scale: f32,
+        /// Also generate PDFs next to snapshots for debugging.
+        #[serde(default)]
+        pdf: bool,
+        /// Additional font search paths passed as `--font-path` to typst.
+        #[serde(default)]
+        font_paths: Vec<String>,
+    },
+}
+
+fn default_typst_scale() -> f32 {
+    2.0
 }
 
 impl SourceConfig {
-    pub fn url(&self) -> &str {
-        match self {
-            Self::Storybook { url, .. } => url,
-        }
-    }
-
     pub fn viewports(&self) -> Option<&[String]> {
         match self {
             Self::Storybook { viewports, .. } => viewports.as_deref(),
+            Self::Typst { .. } => None,
         }
+    }
+
+    pub fn is_storybook(&self) -> bool {
+        matches!(self, Self::Storybook { .. })
     }
 }
 

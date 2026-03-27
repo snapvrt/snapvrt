@@ -1,0 +1,24 @@
+[source.storybook]
+type = "storybook"
+url = "http://localhost:6006"
+# viewports = ["laptop"]           # optional: omit = use all defined viewports
+
+[viewport.laptop]
+width = 1366
+height = 768
+
+# ─────────────────────────────────────────────────────────
+# Capture pipeline — all fields optional.
+# ─────────────────────────────────────────────────────────
+[capture]
+# screenshot = "stable"             # "stable" | "single" (single is faster)
+# stability_attempts = 3
+# stability_delay_ms = 100
+# parallel = 4                      # concurrent browser tabs
+chrome_url = "http://localhost:9222"  # remote Chrome (e.g. Docker)
+
+# ─────────────────────────────────────────────────────────
+# Comparison — all fields optional.
+# ─────────────────────────────────────────────────────────
+[diff]
+# threshold = 0.0                   # max allowed diff score (0.0 = exact, 0.01 = 1%)

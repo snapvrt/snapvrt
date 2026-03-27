@@ -3,6 +3,12 @@ use clap::{Parser, Subcommand};
 use crate::config;
 use crate::config::CaptureConfig;
 
+#[derive(Clone, Copy, Debug, clap::ValueEnum)]
+pub enum InitType {
+    Storybook,
+    Typst,
+}
+
 fn parse_threshold(s: &str) -> Result<f64, String> {
     let v: f64 = s.parse().map_err(|e| format!("{e}"))?;
     config::validate_threshold(v)
@@ -22,9 +28,15 @@ pub struct Cli {
 pub enum Command {
     /// Create .snapvrt/config.toml with default settings
     Init {
-        /// Storybook URL
+        /// Source type: "storybook" or "typst"
+        #[arg(long, rename_all = "kebab-case", default_value = "storybook")]
+        r#type: InitType,
+        /// Storybook URL (for storybook source)
         #[arg(long, default_value = "http://localhost:6006")]
         url: String,
+        /// Glob pattern for .typ files (for typst source)
+        #[arg(long, default_value = "**/*.typ")]
+        include: String,
         /// Overwrite existing config and gitignore
         #[arg(long, short = 'f')]
         force: bool,
@@ -47,6 +59,9 @@ pub enum Command {
         /// Delete orphaned reference snapshots that no longer match any story
         #[arg(long)]
         prune: bool,
+        /// Generate HTML review report after testing
+        #[arg(long)]
+        review: bool,
         #[command(flatten)]
         capture: CaptureConfig,
     },
