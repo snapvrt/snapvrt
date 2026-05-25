@@ -33,14 +33,9 @@ impl CapturePlan {
         for entry in &config.sources {
             match &entry.source {
                 ResolvedSource::Storybook { url } => {
-                    let jobs = plan_storybook(
-                        &entry.name,
-                        &entry.viewports,
-                        &config.capture,
-                        url,
-                        filter,
-                    )
-                    .await?;
+                    let jobs =
+                        plan_storybook(&entry.name, &entry.viewports, &config.capture, url, filter)
+                            .await?;
                     chrome_jobs.extend(jobs);
                 }
                 ResolvedSource::Pages { base_url, pages } => {
@@ -303,7 +298,15 @@ async fn plan_typst(
                 package_paths,
             };
 
-            compile_template(&opts, source_name, &template.stem, None, filter, &mut results).await;
+            compile_template(
+                &opts,
+                source_name,
+                &template.stem,
+                None,
+                filter,
+                &mut results,
+            )
+            .await;
         } else {
             for fixture in &template.fixtures {
                 let pdf_path = if pdf {
