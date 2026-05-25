@@ -119,6 +119,10 @@ pub struct CompileOptions<'a> {
     pub pdf_path: Option<PathBuf>,
     /// Additional font search paths passed as `--font-path` to typst.
     pub font_paths: &'a [String],
+    /// Additional local-package roots passed as `--package-path` to
+    /// typst. Each must follow typst's standard
+    /// `<dir>/<namespace>/<name>/<version>/` layout.
+    pub package_paths: &'a [String],
 }
 
 /// Compile a single Typst template to PNG pages.
@@ -154,11 +158,25 @@ pub async fn compile(opts: &CompileOptions<'_>) -> Result<Vec<RenderedPage>> {
         None
     };
 
-    let pages = compile_png(opts.root, opts.template, opts.scale, opts.font_paths).await?;
+    let pages = compile_png(
+        opts.root,
+        opts.template,
+        opts.scale,
+        opts.font_paths,
+        opts.package_paths,
+    )
+    .await?;
 
     // Optionally compile PDF for debugging
     if let Some(ref pdf_path) = opts.pdf_path {
-        compile_pdf(opts.root, opts.template, pdf_path, opts.font_paths).await?;
+        compile_pdf(
+            opts.root,
+            opts.template,
+            pdf_path,
+            opts.font_paths,
+            opts.package_paths,
+        )
+        .await?;
     }
 
     Ok(pages)
@@ -170,6 +188,7 @@ async fn compile_png(
     template: &Path,
     scale: f32,
     font_paths: &[String],
+    package_paths: &[String],
 ) -> Result<Vec<RenderedPage>> {
     let ppi = (scale * 72.0).round() as u32;
     let temp_dir = tempfile::tempdir().context("Failed to create temp dir for typst output")?;
@@ -185,6 +204,9 @@ async fn compile_png(
         .arg(root);
     for fp in font_paths {
         cmd.arg("--font-path").arg(fp);
+    }
+    for pp in package_paths {
+        cmd.arg("--package-path").arg(pp);
     }
     cmd.arg(template).arg(&output_pattern);
 
@@ -255,6 +277,7 @@ async fn compile_pdf(
     template: &Path,
     pdf_path: &Path,
     font_paths: &[String],
+    package_paths: &[String],
 ) -> Result<()> {
     if let Some(parent) = pdf_path.parent() {
         std::fs::create_dir_all(parent)
@@ -269,6 +292,9 @@ async fn compile_pdf(
         .arg(root);
     for fp in font_paths {
         cmd.arg("--font-path").arg(fp);
+    }
+    for pp in package_paths {
+        cmd.arg("--package-path").arg(pp);
     }
     cmd.arg(template).arg(pdf_path);
 

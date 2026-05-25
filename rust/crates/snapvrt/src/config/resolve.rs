@@ -24,6 +24,7 @@ pub enum ResolvedSource {
         scale: f32,
         pdf: bool,
         font_paths: Vec<String>,
+        package_paths: Vec<String>,
     },
     Pages {
         base_url: String,
@@ -87,12 +88,14 @@ impl ResolvedRunConfig {
                     scale,
                     pdf,
                     font_paths,
+                    package_paths,
                 } => ResolvedSource::Typst {
                     root: PathBuf::from(root),
                     include: include.clone(),
                     scale: *scale,
                     pdf: *pdf,
                     font_paths: font_paths.clone(),
+                    package_paths: package_paths.clone(),
                 },
                 SourceConfig::Pages {
                     base_url, pages, ..

@@ -54,6 +54,7 @@ impl CapturePlan {
                     scale,
                     pdf,
                     font_paths,
+                    package_paths,
                 } => {
                     let results = plan_typst(
                         &entry.name,
@@ -62,6 +63,7 @@ impl CapturePlan {
                         *scale,
                         *pdf,
                         font_paths,
+                        package_paths,
                         filter,
                     )
                     .await?;
@@ -262,6 +264,7 @@ async fn plan_typst(
     scale: f32,
     pdf: bool,
     font_paths: &[String],
+    package_paths: &[String],
     filter: Option<&str>,
 ) -> Result<Vec<(CaptureJob, CaptureOutcome)>> {
     let templates = typst::discover(include)?;
@@ -297,6 +300,7 @@ async fn plan_typst(
                 scale,
                 pdf_path,
                 font_paths,
+                package_paths,
             };
 
             compile_template(&opts, source_name, &template.stem, None, filter, &mut results).await;
@@ -317,6 +321,7 @@ async fn plan_typst(
                     scale,
                     pdf_path,
                     font_paths,
+                    package_paths,
                 };
 
                 compile_template(

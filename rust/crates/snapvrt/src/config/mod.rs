@@ -139,6 +139,13 @@ pub enum SourceConfig {
         /// Additional font search paths passed as `--font-path` to typst.
         #[serde(default)]
         font_paths: Vec<String>,
+        /// Additional local-package roots passed as `--package-path` to
+        /// typst. Typst looks for `<dir>/<namespace>/<name>/<version>/`
+        /// under each. Use this for in-repo `@<ns>/<name>:<ver>` packages
+        /// that aren't in typst's default cache (e.g. a `lib/packages/`
+        /// tree shipped alongside the templates).
+        #[serde(default)]
+        package_paths: Vec<String>,
     },
     #[serde(rename = "pages")]
     Pages {
