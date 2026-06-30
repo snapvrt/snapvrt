@@ -248,3 +248,13 @@ pub(crate) const GET_STORY_ROOT_BOUNDS_JS: &str = r#"
     });
 })()
 "#;
+
+/// Get the full document body bounds (for non-Storybook page captures).
+/// Uses scrollWidth/scrollHeight to capture the entire page, not just the viewport.
+pub(crate) const GET_BODY_BOUNDS_JS: &str = r#"
+(function() {
+    var w = Math.max(document.body.scrollWidth, document.documentElement.scrollWidth);
+    var h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+    return JSON.stringify({ x: 0, y: 0, width: w, height: h });
+})()
+"#;

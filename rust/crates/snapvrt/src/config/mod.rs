@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 pub use self::capture::CaptureConfig;
 pub use self::resolve::{CliOverrides, ResolvedRunConfig};
-pub use self::template::{config_file_exists, write_gitignore, write_template};
+pub use self::template::{InitSourceType, config_file_exists, write_gitignore, write_template};
 
 pub(crate) const CONFIG_DIR: &str = ".snapvrt";
 const CONFIG_FILE: &str = "config.toml";
@@ -53,7 +53,9 @@ impl Config {
             );
         }
 
-        if self.viewport.is_empty() {
+        let needs_viewports = self.source.values().any(|s| s.needs_browser());
+
+        if needs_viewports && self.viewport.is_empty() {
             bail!(
                 "No viewports configured. Add a viewport section, e.g.:\n\n  \
                  [viewport.laptop]\n  \
@@ -86,6 +88,26 @@ impl Config {
                     }
                 }
             }
+
+            if let SourceConfig::Typst { include, .. } = source
+                && include.is_empty()
+            {
+                bail!(
+                    "Source '{source_name}' (typst) has no include patterns. \
+                     Add at least one glob pattern, e.g.:\n\n  \
+                     include = [\"typst-templates/**/*.typ\"]"
+                );
+            }
+
+            if let SourceConfig::Pages { pages, .. } = source
+                && pages.is_empty()
+            {
+                bail!(
+                    "Source '{source_name}' (pages) has no pages. \
+                     Add at least one URL path, e.g.:\n\n  \
+                     pages = [\"/en\", \"/en/about\"]"
+                );
+            }
         }
 
         Ok(())
@@ -101,19 +123,58 @@ pub enum SourceConfig {
         #[serde(default)]
         viewports: Option<Vec<String>>,
     },
+    #[serde(rename = "typst")]
+    Typst {
+        /// Root directory for `typst compile --root` (import resolution).
+        root: String,
+        /// Glob patterns to discover .typ files (relative to working dir).
+        #[serde(default)]
+        include: Vec<String>,
+        /// PNG scale factor (default: 2.0 → 144 PPI).
+        #[serde(default = "default_typst_scale")]
+        scale: f32,
+        /// Also generate PDFs next to snapshots for debugging.
+        #[serde(default)]
+        pdf: bool,
+        /// Additional font search paths passed as `--font-path` to typst.
+        #[serde(default)]
+        font_paths: Vec<String>,
+        /// Additional local-package roots passed as `--package-path` to
+        /// typst. Typst looks for `<dir>/<namespace>/<name>/<version>/`
+        /// under each. Use this for in-repo `@<ns>/<name>:<ver>` packages
+        /// that aren't in typst's default cache (e.g. a `lib/packages/`
+        /// tree shipped alongside the templates).
+        #[serde(default)]
+        package_paths: Vec<String>,
+    },
+    #[serde(rename = "pages")]
+    Pages {
+        /// Base URL of the site (e.g. "http://localhost:3001").
+        base_url: String,
+        /// URL paths to screenshot (e.g. ["/en", "/en/modules"]).
+        pages: Vec<String>,
+        /// Optional: subset of defined viewports to use.
+        #[serde(default)]
+        viewports: Option<Vec<String>>,
+    },
+}
+
+fn default_typst_scale() -> f32 {
+    2.0
 }
 
 impl SourceConfig {
-    pub fn url(&self) -> &str {
+    pub fn viewports(&self) -> Option<&[String]> {
         match self {
-            Self::Storybook { url, .. } => url,
+            Self::Storybook { viewports, .. } | Self::Pages { viewports, .. } => {
+                viewports.as_deref()
+            }
+            Self::Typst { .. } => None,
         }
     }
 
-    pub fn viewports(&self) -> Option<&[String]> {
-        match self {
-            Self::Storybook { viewports, .. } => viewports.as_deref(),
-        }
+    pub fn needs_browser(&self) -> bool {
+        matches!(self, Self::Storybook { .. } | Self::Pages { .. })
     }
 }
 

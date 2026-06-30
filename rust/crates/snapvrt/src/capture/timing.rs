@@ -15,3 +15,22 @@ pub struct CaptureTimings {
     /// Time spent on image comparison. Zero when no reference exists.
     pub compare: Duration,
 }
+
+impl CaptureTimings {
+    /// All durations set to zero.
+    pub fn zero() -> Self {
+        Self {
+            viewport: Duration::ZERO,
+            navigate: Duration::ZERO,
+            page_load: Duration::ZERO,
+            network: Duration::ZERO,
+            animation: Duration::ZERO,
+            ready: Duration::ZERO,
+            selector: Duration::ZERO,
+            clip: Duration::ZERO,
+            screenshot: Duration::ZERO,
+            total: Duration::ZERO,
+            compare: Duration::ZERO,
+        }
+    }
+}

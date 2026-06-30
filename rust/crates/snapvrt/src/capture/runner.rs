@@ -161,6 +161,7 @@ async fn capture_all_with(
                         url: job.url.clone(),
                         width: job.width,
                         height: job.height,
+                        full_page: job.full_page,
                     };
                     let capture_span = debug_span!("capture", job = %job.snapshot_id());
                     let outcome = match tokio::time::timeout(

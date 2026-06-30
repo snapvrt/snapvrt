@@ -17,6 +17,8 @@ pub struct CaptureRequest {
     pub url: String,
     pub width: u32,
     pub height: u32,
+    /// When true, skip Storybook-specific selectors and capture the full page body.
+    pub full_page: bool,
 }
 
 /// Result of a capture operation.
@@ -135,17 +137,24 @@ impl CdpSession {
         debug!(elapsed_ms = (t6 - t5).as_millis() as u64, "6/9 ready");
 
         // 7. Wait for story root selector (poll until visible with non-zero dimensions)
-        debug!("7/9 wait_story_root");
-        conn.eval_async(scripts::WAIT_FOR_STORY_ROOT_JS).await?;
+        //    Skipped for full-page captures (no Storybook root container).
+        if !req.full_page {
+            debug!("7/9 wait_story_root");
+            conn.eval_async(scripts::WAIT_FOR_STORY_ROOT_JS).await?;
+        } else {
+            debug!("7/9 skip (full_page)");
+        }
         let t7 = Instant::now();
-        debug!(
-            elapsed_ms = (t7 - t6).as_millis() as u64,
-            "7/9 story root present"
-        );
+        debug!(elapsed_ms = (t7 - t6).as_millis() as u64, "7/9 done");
 
         // 8. Get clip bounds
+        //    For full-page captures, use the body rect directly.
         debug!("8/9 get_clip");
-        let mut clip = strategy::get_clip(conn).await?;
+        let mut clip = if req.full_page {
+            strategy::get_body_clip(conn).await?
+        } else {
+            strategy::get_clip(conn).await?
+        };
 
         // Clamp clip width to viewport.
         let vp_w = req.width as f64;

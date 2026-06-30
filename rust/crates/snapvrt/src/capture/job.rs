@@ -15,6 +15,8 @@ pub struct CaptureJob {
     pub width: u32,
     /// Viewport height in CSS pixels.
     pub height: u32,
+    /// When true, skip Storybook-specific selectors and capture the full page.
+    pub full_page: bool,
 }
 
 impl CaptureJob {

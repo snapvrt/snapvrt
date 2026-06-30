@@ -1,6 +1,7 @@
 pub mod diff;
 
 /// Status of a single snapshot comparison.
+#[derive(Clone)]
 pub enum SnapshotStatus {
     Pass,
     Fail {

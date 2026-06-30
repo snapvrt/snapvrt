@@ -7,6 +7,7 @@ use crate::storybook::normalize_for_filter;
 enum Kind {
     New,
     Failed,
+    Pass,
 }
 
 pub fn approve(filter: Option<&str>, new_only: bool, failed_only: bool, all: bool) -> Result<()> {
@@ -27,6 +28,8 @@ pub fn approve(filter: Option<&str>, new_only: bool, failed_only: bool, all: boo
         .map(|id| {
             let kind = if store::has_difference(id) {
                 Kind::Failed
+            } else if store::has_reference(id) {
+                Kind::Pass
             } else {
                 Kind::New
             };
@@ -34,9 +37,10 @@ pub fn approve(filter: Option<&str>, new_only: bool, failed_only: bool, all: boo
         })
         .collect();
 
-    // Filter by kind.
+    // Filter by kind — skip Pass (reference matches current, nothing to approve).
     let kind_filtered: Vec<(&str, Kind)> = classified
         .into_iter()
+        .filter(|(_, kind)| *kind != Kind::Pass)
         .filter(|(_, kind)| {
             if new_only {
                 *kind == Kind::New
@@ -84,6 +88,7 @@ pub fn approve(filter: Option<&str>, new_only: bool, failed_only: bool, all: boo
                         count_new += 1;
                         "\x1b[33m NEW\x1b[0m"
                     }
+                    Kind::Pass => unreachable!("Pass entries are filtered out"),
                 };
                 println!("  Approved  {label}  {id}");
             }
