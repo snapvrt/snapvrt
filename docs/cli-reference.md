@@ -1,156 +1,125 @@
 # CLI Reference
 
-```sh
-$ snapvrt --help
-Visual regression testing tool
+## Commands
 
-Usage: snapvrt <COMMAND>
+```
+snapvrt <COMMAND>
 
 Commands:
-  init     Initialize a new snapvrt project
-  test     Run visual regression tests
-  update   Capture and save reference snapshots
-  approve  Approve pending snapshot changes
-  review   Launch interactive review UI
-  prune    Remove orphaned reference snapshots
-  service  Manage the HTTP API service
-
-Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  init      Create .snapvrt/ with default config
+  test      Discover, capture, compare, and report visual differences
+  update    Discover, capture, and save as reference snapshots
+  approve   Promote current/ snapshots to reference/
+  review    Generate a visual review report (static HTML)
+  prune     Delete orphaned reference snapshots
 ```
 
-```sh
-$ snapvrt init --help
-Initialize a new snapvrt project
+### `snapvrt init`
 
-Usage: snapvrt init [SOURCE] [OPTIONS]
+Create `.snapvrt/config.toml` with default settings and a `.gitignore`.
 
-Arguments:
-  [SOURCE]  Source to add: storybook, pdf, web (omit for minimal config)
+```
+snapvrt init [OPTIONS]
 
 Options:
-  -h, --help  Print help
-
-Behavior:
-  - Creates .snapvrt/ if it doesn't exist
-  - Adds source config without overwriting existing sources
-  - Safe to run multiple times
-
-Examples:
-  snapvrt init              # Create minimal config
-  snapvrt init storybook    # Add Storybook source
-  snapvrt init pdf          # Add PDF source
+      --url <URL>     Storybook URL [default: http://localhost:6006]
+  -f, --force         Overwrite existing config and gitignore
 ```
 
-```sh
-$ snapvrt test --help
-Run visual regression tests
+Safe to run multiple times (won't overwrite unless `--force`).
 
-Usage: snapvrt test [SOURCE] [OPTIONS]
+### `snapvrt test`
 
-Arguments:
-  [SOURCE]  Source to test: storybook, pdf, web (omit for all configured sources)
+Discover stories, capture screenshots, compare against references, and report results.
+
+```
+snapvrt test [OPTIONS]
 
 Options:
-      --filter <PATTERN>  Filter snapshots by name pattern
-      --auto-add-new      Automatically approve new snapshots
-      --prune             Delete orphaned reference snapshots
-      --fail-fast         Stop on first source error
-  -h, --help              Print help
-
-Source-specific options (require explicit source):
-  Storybook:
-      --url <URL>              Storybook server URL
-      --static-dir <PATH>      Path to static Storybook build
-
-  PDF:
-      --manifest <PATH>        Path to PDF manifest file
-      --dpi <DPI>              Render resolution [default: 144]
-
-  Web:
-      --manifest <PATH>        Path to web manifest file
-      --viewport <VIEWPORT>    Viewport to use
+      --url <URL>                Storybook URL (overrides config)
+  -f, --filter <PATTERN>         Only run snapshots whose name contains PATTERN (case-insensitive)
+      --threshold <FLOAT>        Max allowed diff score, 0.0-1.0 (overrides config)
+      --timings                  Print per-snapshot timing breakdown table
+      --prune                    Delete orphaned reference snapshots
+      --screenshot <MODE>        Screenshot strategy: stable, single [default: stable]
+      --stability-attempts <N>   Max screenshots for stability check [default: 3]
+      --stability-delay-ms <MS>  Delay between stability attempts [default: 100]
+  -p, --parallel <N>             Concurrent browser tabs [default: 4]
+      --chrome-url <URL>         Connect to remote Chrome (e.g. http://localhost:9222)
 ```
 
-```sh
-$ snapvrt update --help
-Capture and save reference snapshots directly (no comparison)
+**Exit codes:**
 
-Usage: snapvrt update [SOURCE] [OPTIONS]
+- `0` — all snapshots passed
+- `1` — any failures, new snapshots, or capture errors
 
-Arguments:
-  [SOURCE]  Source to update: storybook, pdf, web (omit for all configured sources)
+### `snapvrt update`
+
+Discover stories, capture screenshots, and save directly as reference snapshots (no comparison).
+
+```
+snapvrt update [OPTIONS]
 
 Options:
-      --filter <PATTERN>  Filter snapshots by name pattern
-  -h, --help              Print help
+      --url <URL>                Storybook URL (overrides config)
+  -f, --filter <PATTERN>         Only run snapshots whose name contains PATTERN (case-insensitive)
+      --timings                  Print per-snapshot timing breakdown table
+      --screenshot <MODE>        Screenshot strategy: stable, single
+      --stability-attempts <N>   Max screenshots for stability check
+      --stability-delay-ms <MS>  Delay between stability attempts
+  -p, --parallel <N>             Concurrent browser tabs
+      --chrome-url <URL>         Connect to remote Chrome
 ```
 
-```sh
-$ snapvrt approve --help
-Approve pending snapshot changes (save current as reference)
+### `snapvrt approve`
 
-Usage: snapvrt approve [SOURCE] [OPTIONS]
+Promote `current/` snapshots to `reference/` without re-capturing. Run after `snapvrt test` to accept changes.
 
-Arguments:
-  [SOURCE]  Source to approve from: storybook, pdf, web [default: all]
+```
+snapvrt approve [OPTIONS]
 
 Options:
-      --filter <PATTERN>  Approve snapshots matching pattern
-      --new               Approve only new snapshots
-      --failed            Approve only failed snapshots
+  -f, --filter <PATTERN>  Only approve snapshots whose name contains PATTERN
+      --new               Only approve new snapshots (no prior reference)
+      --failed            Only approve failed snapshots (have a diff)
       --all               Approve all pending (new + failed)
-  -h, --help              Print help
-
-Examples:
-  snapvrt approve --filter button-primary
-  snapvrt approve --filter "button-*"
-  snapvrt approve storybook --all
-  snapvrt approve --new
 ```
 
+When no kind flags (`--new`, `--failed`, `--all`) are given, `--all` is the default.
+
+**Examples:**
+
 ```sh
-$ snapvrt review --help
-Launch interactive review UI
-
-Usage: snapvrt review [SOURCE] [OPTIONS]
-
-Arguments:
-  [SOURCE]  Source to review: storybook, pdf, web [default: all]
-
-Options:
-  -h, --help  Print help
+snapvrt approve --all                    # Approve everything
+snapvrt approve -f button                # Approve snapshots matching "button"
+snapvrt approve --new                    # Approve only new snapshots
+snapvrt approve --failed -f "card"       # Approve failed snapshots matching "card"
 ```
 
-```sh
-$ snapvrt prune --help
-Remove orphaned reference snapshots
+### `snapvrt review`
 
-Usage: snapvrt prune [SOURCE] [OPTIONS]
+Generate a static HTML report showing reference, current, and diff images side by side.
 
-Arguments:
-  [SOURCE]  Source to prune: storybook, pdf, web [default: all]
+```
+snapvrt review [OPTIONS]
 
 Options:
-      --yes      Skip confirmation prompt
-      --dry-run  Show what would be deleted
-  -h, --help     Print help
+      --open  Open the report in the default browser
 ```
 
-```sh
-$ snapvrt service --help
-Manage the HTTP API service
+### `snapvrt prune`
 
-Usage: snapvrt service <COMMAND>
+Find and delete reference snapshots that no longer match any story in the current Storybook.
 
-Commands:
-  start   Start the HTTP API service
-  stop    Stop the running service
-  status  Show service status and pending diffs
+```
+snapvrt prune [OPTIONS]
 
 Options:
-  -h, --help  Print help
+      --url <URL>          Storybook URL (overrides config)
+      --dry-run            Show what would be deleted without deleting
+  -y, --yes                Skip confirmation prompt
+      --chrome-url <URL>   Connect to remote Chrome
+  -p, --parallel <N>       Concurrent browser tabs
 ```
 
 ## Workflows
@@ -160,8 +129,32 @@ Options:
 | Command   | When to use                  | What it does                         |
 | --------- | ---------------------------- | ------------------------------------ |
 | `update`  | Intentional baseline refresh | Capture → save directly as reference |
-| `test`    | CI / verification            | Capture → save as current → compare  |
-| `approve` | After `test` found changes   | Save current as reference            |
+| `test`    | CI / verification            | Capture → compare → report           |
+| `approve` | After `test` found changes   | Promote current → reference          |
 
-Use `update` when you intentionally want new baselines (e.g., after redesigning a component).
-Use `test` + `approve` when you want to review changes first.
+Use `update` when you intentionally want new baselines (e.g., after a redesign).
+
+Use `test` + `approve` when you want to review changes before accepting them.
+
+### Typical CI workflow
+
+```sh
+snapvrt test                     # exits 1 if any diffs or new snapshots
+```
+
+### Typical dev workflow
+
+```sh
+snapvrt test                     # see what changed
+snapvrt review --open            # visual review in browser
+snapvrt approve --all            # accept changes
+snapvrt test                     # verify — should exit 0
+```
+
+## Environment Variables
+
+| Variable                 | Description                                                 |
+| ------------------------ | ----------------------------------------------------------- |
+| `SNAPVRT_STORYBOOK_URL`  | Override Storybook URL (lower priority than `--url`)        |
+| `SNAPVRT_DIFF_THRESHOLD` | Override diff threshold (lower priority than `--threshold`) |
+| `RUST_LOG`               | Log level filter (e.g. `debug`, `snapvrt=trace`)            |
