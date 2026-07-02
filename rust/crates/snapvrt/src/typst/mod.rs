@@ -30,10 +30,7 @@ pub struct TypstTemplate {
 /// For each template `foo.typ`, checks if `foo.fixtures/` directory exists.
 /// If yes, each `.json` file inside becomes a fixture variant.
 /// If no, the template is treated as self-contained (no fixtures).
-pub fn discover(
-    include: &[String],
-    explicit: &[TypstTemplateEntry],
-) -> Result<Vec<TypstTemplate>> {
+pub fn discover(include: &[String], explicit: &[TypstTemplateEntry]) -> Result<Vec<TypstTemplate>> {
     let mut templates = Vec::new();
     let mut seen = std::collections::HashSet::new();
 
@@ -61,8 +58,8 @@ pub fn discover(
             .with_context(|| format!("Invalid glob pattern: {}", entry.path))?;
         let mut matched = false;
         for result in paths {
-            let path = result
-                .with_context(|| format!("Error reading glob result for {}", entry.path))?;
+            let path =
+                result.with_context(|| format!("Error reading glob result for {}", entry.path))?;
             if !path.is_file() || path.extension().is_none_or(|e| e != "typ") {
                 continue;
             }
@@ -127,8 +124,7 @@ fn discover_fixtures(dir: &Path) -> Result<Vec<TypstFixture>> {
 /// Discover .json fixture files matching a glob pattern. Each file's stem is the
 /// fixture (snapshot-variant) name.
 fn discover_fixtures_glob(pattern: &str) -> Result<Vec<TypstFixture>> {
-    let paths =
-        glob::glob(pattern).with_context(|| format!("Invalid fixture glob: {pattern}"))?;
+    let paths = glob::glob(pattern).with_context(|| format!("Invalid fixture glob: {pattern}"))?;
 
     let mut fixtures = Vec::new();
     for entry in paths {
