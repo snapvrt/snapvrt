@@ -39,18 +39,23 @@ pub fn discover(include: &[String], explicit: &[TypstTemplateEntry]) -> Result<V
     // `fixtures/<kind>/` tree), and an explicit entry wins over an include
     // glob's sibling discovery on overlap (processed first → marked seen).
     for entry in explicit {
-        // `fixtures` may be a directory (all its `*.json`) or a file/glob
-        // (a single dataset, or a subset like `.../grouped-*.json`).
-        let pattern = if Path::new(&entry.fixtures).is_dir() {
-            format!("{}/*.json", entry.fixtures.trim_end_matches('/'))
-        } else {
-            entry.fixtures.clone()
-        };
-        let fixtures = discover_fixtures_glob(&pattern)?;
+        // Each `fixtures` spec is a directory (all its `*.json`), a file, or a
+        // glob; a list of them lets a template pick an explicit subset without
+        // duplicating shared datasets on disk.
+        let mut fixtures = Vec::new();
+        for spec in entry.fixtures.specs() {
+            let pattern = if Path::new(spec).is_dir() {
+                format!("{}/*.json", spec.trim_end_matches('/'))
+            } else {
+                spec.clone()
+            };
+            fixtures.extend(discover_fixtures_glob(&pattern)?);
+        }
+        fixtures.sort_by(|a, b| a.name.cmp(&b.name));
         if fixtures.is_empty() {
             bail!(
-                "typst source: no fixtures matched `{}` for template glob `{}`",
-                entry.fixtures,
+                "typst source: no fixtures matched {:?} for template glob `{}`",
+                entry.fixtures.specs(),
                 entry.path,
             );
         }

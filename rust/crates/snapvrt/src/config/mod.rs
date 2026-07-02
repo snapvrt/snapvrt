@@ -122,10 +122,30 @@ impl Config {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TypstTemplateEntry {
     /// Glob for `.typ` files that all render against `fixtures` below (so many
-    /// templates of one kind can share a single fixtures dir).
+    /// templates of one kind can share a single fixtures set).
     pub path: String,
-    /// Directory of `*.json` fixtures; each file is a snapshot variant.
-    pub fixtures: String,
+    /// The `*.json` fixtures to render this template against — a directory (all
+    /// its `*.json`), a file/glob, or a list of any of those. Each resolved
+    /// file is a snapshot variant (named by its stem). A list lets a template
+    /// pick an explicit subset without duplicating shared data on disk.
+    pub fixtures: FixturePaths,
+}
+
+/// One or more fixture path specs (see [`TypstTemplateEntry::fixtures`]).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum FixturePaths {
+    One(String),
+    Many(Vec<String>),
+}
+
+impl FixturePaths {
+    pub fn specs(&self) -> &[String] {
+        match self {
+            FixturePaths::One(s) => std::slice::from_ref(s),
+            FixturePaths::Many(v) => v,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
