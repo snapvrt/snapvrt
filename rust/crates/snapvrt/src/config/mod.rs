@@ -114,6 +114,20 @@ impl Config {
     }
 }
 
+/// An explicit Typst template → fixtures mapping (see
+/// [`SourceConfig::Typst`]'s `templates`). Lets a template render against a
+/// fixtures directory that lives *outside* the sibling `<template>.fixtures/`
+/// location — e.g. a generated `fixtures/<kind>/` tree shared by every
+/// template of that kind.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TypstTemplateEntry {
+    /// Glob for `.typ` files that all render against `fixtures` below (so many
+    /// templates of one kind can share a single fixtures dir).
+    pub path: String,
+    /// Directory of `*.json` fixtures; each file is a snapshot variant.
+    pub fixtures: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum SourceConfig {
@@ -128,8 +142,14 @@ pub enum SourceConfig {
         /// Root directory for `typst compile --root` (import resolution).
         root: String,
         /// Glob patterns to discover .typ files (relative to working dir).
+        /// Each match uses its sibling `<template>.fixtures/` dir, if present.
         #[serde(default)]
         include: Vec<String>,
+        /// Explicit template → fixtures mappings, for data that lives outside
+        /// the sibling `<template>.fixtures/` dir. Overrides `include`'s
+        /// sibling discovery on overlap.
+        #[serde(default)]
+        templates: Vec<TypstTemplateEntry>,
         /// PNG scale factor (default: 2.0 → 144 PPI).
         #[serde(default = "default_typst_scale")]
         scale: f32,

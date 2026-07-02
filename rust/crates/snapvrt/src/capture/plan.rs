@@ -46,6 +46,7 @@ impl CapturePlan {
                 ResolvedSource::Typst {
                     root,
                     include,
+                    templates,
                     scale,
                     pdf,
                     font_paths,
@@ -55,6 +56,7 @@ impl CapturePlan {
                         &entry.name,
                         root,
                         include,
+                        templates,
                         *scale,
                         *pdf,
                         font_paths,
@@ -256,13 +258,14 @@ async fn plan_typst(
     source_name: &str,
     root: &std::path::Path,
     include: &[String],
+    explicit_templates: &[crate::config::TypstTemplateEntry],
     scale: f32,
     pdf: bool,
     font_paths: &[String],
     package_paths: &[String],
     filter: Option<&str>,
 ) -> Result<Vec<(CaptureJob, CaptureOutcome)>> {
-    let templates = typst::discover(include)?;
+    let templates = typst::discover(include, explicit_templates)?;
 
     if templates.is_empty() {
         println!("No Typst templates found");

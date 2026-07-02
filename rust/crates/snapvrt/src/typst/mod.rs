@@ -3,6 +3,8 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, bail};
 use tracing::{debug, warn};
 
+use crate::config::TypstTemplateEntry;
+
 /// A data fixture for a template.
 #[derive(Debug, Clone)]
 pub struct TypstFixture {
@@ -28,9 +30,54 @@ pub struct TypstTemplate {
 /// For each template `foo.typ`, checks if `foo.fixtures/` directory exists.
 /// If yes, each `.json` file inside becomes a fixture variant.
 /// If no, the template is treated as self-contained (no fixtures).
-pub fn discover(include: &[String]) -> Result<Vec<TypstTemplate>> {
+pub fn discover(
+    include: &[String],
+    explicit: &[TypstTemplateEntry],
+) -> Result<Vec<TypstTemplate>> {
     let mut templates = Vec::new();
     let mut seen = std::collections::HashSet::new();
+
+    // Explicit `template → fixtures` entries first. Their fixtures dir may live
+    // outside the sibling `<template>.fixtures/` location (e.g. a generated
+    // `fixtures/<kind>/` tree), and an explicit entry wins over an include
+    // glob's sibling discovery on overlap (processed first → marked seen).
+    for entry in explicit {
+        let fixtures_dir = PathBuf::from(&entry.fixtures);
+        if !fixtures_dir.is_dir() {
+            bail!(
+                "typst source: fixtures dir `{}` for template glob `{}` does not exist",
+                fixtures_dir.display(),
+                entry.path,
+            );
+        }
+        let fixtures = discover_fixtures(&fixtures_dir)?;
+        let paths = glob::glob(&entry.path)
+            .with_context(|| format!("Invalid glob pattern: {}", entry.path))?;
+        let mut matched = false;
+        for result in paths {
+            let path = result
+                .with_context(|| format!("Error reading glob result for {}", entry.path))?;
+            if !path.is_file() || path.extension().is_none_or(|e| e != "typ") {
+                continue;
+            }
+            matched = true;
+            if !seen.insert(path.clone()) {
+                continue;
+            }
+            let stem = path.with_extension("").to_string_lossy().into_owned();
+            templates.push(TypstTemplate {
+                path,
+                stem,
+                fixtures: fixtures.clone(),
+            });
+        }
+        if !matched {
+            warn!(
+                "typst source: template glob `{}` matched no .typ files",
+                entry.path
+            );
+        }
+    }
 
     for pattern in include {
         let paths =

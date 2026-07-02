@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 
 use super::capture::CaptureConfig;
-use super::{SourceConfig, Viewport, load, validate_threshold};
+use super::{SourceConfig, TypstTemplateEntry, Viewport, load, validate_threshold};
 
 /// Values extracted from the CLI that participate in the merge.
 pub struct CliOverrides {
@@ -21,6 +21,7 @@ pub enum ResolvedSource {
     Typst {
         root: PathBuf,
         include: Vec<String>,
+        templates: Vec<TypstTemplateEntry>,
         scale: f32,
         pdf: bool,
         font_paths: Vec<String>,
@@ -85,6 +86,7 @@ impl ResolvedRunConfig {
                 SourceConfig::Typst {
                     root,
                     include,
+                    templates,
                     scale,
                     pdf,
                     font_paths,
@@ -92,6 +94,7 @@ impl ResolvedRunConfig {
                 } => ResolvedSource::Typst {
                     root: PathBuf::from(root),
                     include: include.clone(),
+                    templates: templates.clone(),
                     scale: *scale,
                     pdf: *pdf,
                     font_paths: font_paths.clone(),
