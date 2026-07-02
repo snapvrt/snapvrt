@@ -42,15 +42,21 @@ pub fn discover(
     // `fixtures/<kind>/` tree), and an explicit entry wins over an include
     // glob's sibling discovery on overlap (processed first → marked seen).
     for entry in explicit {
-        let fixtures_dir = PathBuf::from(&entry.fixtures);
-        if !fixtures_dir.is_dir() {
+        // `fixtures` may be a directory (all its `*.json`) or a file/glob
+        // (a single dataset, or a subset like `.../grouped-*.json`).
+        let pattern = if Path::new(&entry.fixtures).is_dir() {
+            format!("{}/*.json", entry.fixtures.trim_end_matches('/'))
+        } else {
+            entry.fixtures.clone()
+        };
+        let fixtures = discover_fixtures_glob(&pattern)?;
+        if fixtures.is_empty() {
             bail!(
-                "typst source: fixtures dir `{}` for template glob `{}` does not exist",
-                fixtures_dir.display(),
+                "typst source: no fixtures matched `{}` for template glob `{}`",
+                entry.fixtures,
                 entry.path,
             );
         }
-        let fixtures = discover_fixtures(&fixtures_dir)?;
         let paths = glob::glob(&entry.path)
             .with_context(|| format!("Invalid glob pattern: {}", entry.path))?;
         let mut matched = false;
@@ -113,12 +119,16 @@ pub fn discover(
     Ok(templates)
 }
 
-/// Discover .json fixture files in a fixtures directory.
+/// Discover .json fixture files in a fixtures directory (its `*.json`).
 fn discover_fixtures(dir: &Path) -> Result<Vec<TypstFixture>> {
-    let pattern = dir.join("*.json");
-    let pattern_str = pattern.to_string_lossy();
+    discover_fixtures_glob(&dir.join("*.json").to_string_lossy())
+}
+
+/// Discover .json fixture files matching a glob pattern. Each file's stem is the
+/// fixture (snapshot-variant) name.
+fn discover_fixtures_glob(pattern: &str) -> Result<Vec<TypstFixture>> {
     let paths =
-        glob::glob(&pattern_str).with_context(|| format!("Invalid fixture glob: {pattern_str}"))?;
+        glob::glob(pattern).with_context(|| format!("Invalid fixture glob: {pattern}"))?;
 
     let mut fixtures = Vec::new();
     for entry in paths {
