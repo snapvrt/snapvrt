@@ -4,13 +4,15 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 
 use super::capture::CaptureConfig;
-use super::{SourceConfig, TypstTemplateEntry, Viewport, load, validate_threshold};
+use super::{SourceConfig, SourceFilter, TypstTemplateEntry, Viewport, load, validate_threshold};
 
 /// Values extracted from the CLI that participate in the merge.
 pub struct CliOverrides {
     pub url: Option<String>,
     pub threshold: Option<f64>,
     pub capture: CaptureConfig,
+    /// Restrict the run to these config sources (empty = all).
+    pub sources: Vec<String>,
 }
 
 /// Source-specific resolved configuration.
@@ -45,6 +47,10 @@ pub struct ResolvedRunConfig {
     pub sources: Vec<ResolvedSourceEntry>,
     pub capture: CaptureConfig,
     pub diff_threshold: f64,
+    /// The `--source` selection, validated against the config. `sources` above
+    /// is already restricted to it; store operations (orphan scans) reuse it to
+    /// scope reference ids so they don't treat other sources' refs as orphans.
+    pub source_filter: SourceFilter,
 }
 
 impl ResolvedRunConfig {
@@ -71,9 +77,14 @@ impl ResolvedRunConfig {
         let mut capture = file_config.capture;
         capture.merge(&cli.capture);
 
-        // 5. Resolve all sources
+        // 5. Resolve the (validated) source selection, then resolve only the
+        //    selected sources — unselected ones are never discovered/captured.
+        let source_filter = SourceFilter::validated(&cli.sources, file_config.source.keys())?;
         let mut sources = Vec::new();
         for (source_name, source_config) in &file_config.source {
+            if !source_filter.selects(source_name) {
+                continue;
+            }
             let source = match source_config {
                 SourceConfig::Storybook { url, .. } => {
                     let storybook_url = cli
@@ -137,6 +148,7 @@ impl ResolvedRunConfig {
             sources,
             capture,
             diff_threshold,
+            source_filter,
         })
     }
 }

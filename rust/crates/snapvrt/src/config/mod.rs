@@ -2,7 +2,7 @@ pub mod capture;
 pub mod resolve;
 pub mod template;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use anyhow::{Context, Result, bail};
@@ -234,6 +234,81 @@ fn default_viewports() -> BTreeMap<String, Viewport> {
         },
     );
     m
+}
+
+/// Selects which config sources a command operates on. Empty = all sources.
+///
+/// Snapshot ids are namespaced `{source}/…`, so the same filter scopes both
+/// discovery (via [`selects`](Self::selects), by source name) and store
+/// operations like approve/prune/report (via [`matches_id`](Self::matches_id),
+/// by the id's leading source segment).
+#[derive(Debug, Clone, Default)]
+pub struct SourceFilter {
+    names: Vec<String>,
+}
+
+impl SourceFilter {
+    /// No restriction — every source.
+    pub fn all() -> Self {
+        Self::default()
+    }
+
+    /// Validate the requested source names against the configured set. An empty
+    /// request selects all sources; an unknown name is a hard error (with the
+    /// known names listed) so a typo fails loudly instead of matching nothing.
+    pub fn validated<'a>(
+        requested: &[String],
+        known: impl IntoIterator<Item = &'a String>,
+    ) -> Result<Self> {
+        if requested.is_empty() {
+            return Ok(Self::all());
+        }
+        let known: BTreeSet<&str> = known.into_iter().map(String::as_str).collect();
+        for name in requested {
+            if !known.contains(name.as_str()) {
+                let mut names: Vec<&str> = known.iter().copied().collect();
+                names.sort_unstable();
+                bail!(
+                    "Unknown source '{name}'. Known sources: {}",
+                    names.join(", ")
+                );
+            }
+        }
+        Ok(Self {
+            names: requested.to_vec(),
+        })
+    }
+
+    pub fn is_all(&self) -> bool {
+        self.names.is_empty()
+    }
+
+    /// Whether a config source (by name) is selected — scopes discovery so
+    /// unselected sources are never captured (no browser for a `pages` source).
+    pub fn selects(&self, source_name: &str) -> bool {
+        self.names.is_empty() || self.names.iter().any(|n| n == source_name)
+    }
+
+    /// Whether a snapshot id (namespaced `{source}/…`) belongs to a selected
+    /// source — scopes store operations without re-discovering.
+    pub fn matches_id(&self, id: &str) -> bool {
+        self.names.is_empty()
+            || self
+                .names
+                .iter()
+                .any(|n| id.strip_prefix(n).is_some_and(|rest| rest.starts_with('/')))
+    }
+}
+
+/// Load the config and validate `requested` against its source names. For the
+/// store-only commands (approve, review) that don't build a
+/// [`ResolvedRunConfig`]. An empty request skips the load and selects all.
+pub fn resolve_source_filter(requested: &[String]) -> Result<SourceFilter> {
+    if requested.is_empty() {
+        return Ok(SourceFilter::all());
+    }
+    let config = load()?;
+    SourceFilter::validated(requested, config.source.keys())
 }
 
 pub fn load() -> Result<Config> {
