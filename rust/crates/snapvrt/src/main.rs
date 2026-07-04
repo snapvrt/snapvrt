@@ -34,6 +34,10 @@ async fn main() -> anyhow::Result<()> {
         } => {
             commands::init(r#type, &url, &include, force)?;
         }
+        cli::Command::Completions { shell } => {
+            let mut cmd = <cli::Cli as clap::CommandFactory>::command();
+            clap_complete::generate(shell, &mut cmd, "snapvrt", &mut std::io::stdout());
+        }
         cli::Command::Review { open, source } => {
             let source_filter = config::resolve_source_filter(&source)?;
             commands::review(open, &source_filter)?;
