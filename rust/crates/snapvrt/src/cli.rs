@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use clap_complete::Shell;
 
 use crate::config;
 use crate::config::CaptureConfig;
@@ -115,6 +116,15 @@ pub enum Command {
         source: Vec<String>,
         #[command(flatten)]
         capture: CaptureConfig,
+    },
+
+    /// Print a shell completion script to stdout.
+    ///
+    /// Source it in your shell rc, e.g. `eval "$(snapvrt completions bash)"`
+    /// (bash/zsh) or `snapvrt completions fish | source` (fish).
+    Completions {
+        /// Shell to generate completions for (bash, zsh, fish, powershell, elvish).
+        shell: Shell,
     },
 
     /// Discover, capture, and save as reference snapshots
