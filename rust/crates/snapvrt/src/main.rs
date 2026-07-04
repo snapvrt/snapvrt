@@ -34,12 +34,14 @@ async fn main() -> anyhow::Result<()> {
         } => {
             commands::init(r#type, &url, &include, force)?;
         }
-        cli::Command::Review { open } => {
-            commands::review(open)?;
+        cli::Command::Review { open, source } => {
+            let source_filter = config::resolve_source_filter(&source)?;
+            commands::review(open, &source_filter)?;
         }
         cli::Command::Test {
             url,
             filter,
+            source,
             threshold,
             timings,
             prune,
@@ -50,11 +52,13 @@ async fn main() -> anyhow::Result<()> {
                 url,
                 threshold,
                 capture,
+                sources: source,
             };
             let config = ResolvedRunConfig::new(overrides)?;
+            let source_filter = config.source_filter.clone();
             let code = commands::test(config, filter.as_deref(), timings, prune).await?;
             if review {
-                commands::review(false)?;
+                commands::review(false, &source_filter)?;
             }
             std::process::exit(code);
         }
@@ -62,27 +66,32 @@ async fn main() -> anyhow::Result<()> {
             url,
             dry_run,
             yes,
+            source,
             capture,
         } => {
             let overrides = CliOverrides {
                 url,
                 threshold: None,
                 capture,
+                sources: source,
             };
             let config = ResolvedRunConfig::new(overrides)?;
             commands::prune(config, dry_run, yes).await?;
         }
         cli::Command::Approve {
             filter,
+            source,
             new,
             failed,
             all,
         } => {
-            commands::approve(filter.as_deref(), new, failed, all)?;
+            let source_filter = config::resolve_source_filter(&source)?;
+            commands::approve(filter.as_deref(), new, failed, all, &source_filter)?;
         }
         cli::Command::Update {
             url,
             filter,
+            source,
             timings,
             capture,
         } => {
@@ -90,6 +99,7 @@ async fn main() -> anyhow::Result<()> {
                 url,
                 threshold: None,
                 capture,
+                sources: source,
             };
             let config = ResolvedRunConfig::new(overrides)?;
             commands::update(config, filter.as_deref(), timings).await?;

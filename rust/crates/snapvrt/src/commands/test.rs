@@ -40,7 +40,12 @@ pub async fn test(
     // Pre-compute orphans so we can include removal info in streaming output.
     let mut removed_names: Vec<String> = Vec::new();
     if filter.is_none() {
-        let reference_ids = store::list_reference_ids();
+        // Scope to the selected sources so a `--source` run never treats another
+        // source's references as orphans (which `--prune` would then delete).
+        let reference_ids: BTreeSet<String> = store::list_reference_ids()
+            .into_iter()
+            .filter(|id| config.source_filter.matches_id(id))
+            .collect();
         let orphans: BTreeSet<&String> = reference_ids.difference(&planned_ids).collect();
         for id in &orphans {
             removed_names.push((*id).clone());

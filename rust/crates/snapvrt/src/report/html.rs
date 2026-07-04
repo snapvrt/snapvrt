@@ -4,6 +4,7 @@ use std::path::Path;
 use anyhow::{Context, Result};
 
 use super::{display_page_key, split_page_key};
+use crate::config::SourceFilter;
 use crate::store;
 
 const OUTPUT_FILE: &str = "report.html";
@@ -40,7 +41,7 @@ fn collect_pngs(base: &Path, dir: &Path, out: &mut BTreeSet<String>) {
     }
 }
 
-fn collect_rows() -> Vec<SnapshotRow> {
+fn collect_rows(source_filter: &SourceFilter) -> Vec<SnapshotRow> {
     let base = Path::new(store::BASE_DIR);
     let reference = list_png_relative(&base.join(store::REFERENCE_DIR));
     let current = list_png_relative(&base.join(store::CURRENT_DIR));
@@ -53,6 +54,7 @@ fn collect_rows() -> Vec<SnapshotRow> {
 
     all_names
         .into_iter()
+        .filter(|name| source_filter.matches_id(name))
         .map(|name| SnapshotRow {
             has_reference: reference.contains(&name),
             has_current: current.contains(&name),
@@ -362,8 +364,8 @@ fn epoch_days_to_ymd(mut days: u64) -> (u64, u64, u64) {
 }
 
 /// Generate `.snapvrt/report.html` and return the path.
-pub fn generate() -> Result<String> {
-    let rows = collect_rows();
+pub fn generate(source_filter: &SourceFilter) -> Result<String> {
+    let rows = collect_rows(source_filter);
     let (html, diff_count, new_count) = build_html(&rows);
 
     let out_path = Path::new(store::BASE_DIR).join(OUTPUT_FILE);

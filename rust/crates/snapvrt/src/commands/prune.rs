@@ -10,7 +10,12 @@ use crate::store;
 pub async fn prune(config: ResolvedRunConfig, dry_run: bool, yes: bool) -> Result<()> {
     let run = CapturePlan::plan(&config, None).await?;
     let planned_ids: std::collections::BTreeSet<String> = run.job_names().into_iter().collect();
-    let reference_ids = store::list_reference_ids();
+    // Only consider references belonging to the selected sources — otherwise a
+    // `--source` prune would see every other source's refs as orphans.
+    let reference_ids: std::collections::BTreeSet<String> = store::list_reference_ids()
+        .into_iter()
+        .filter(|id| config.source_filter.matches_id(id))
+        .collect();
 
     let orphans: Vec<&String> = reference_ids.difference(&planned_ids).collect();
 

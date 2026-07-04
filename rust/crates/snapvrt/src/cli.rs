@@ -51,6 +51,9 @@ pub enum Command {
         /// Only run snapshots whose name contains PATTERN (case-insensitive)
         #[arg(long, short = 'f')]
         filter: Option<String>,
+        /// Only run the named config source(s); repeatable. Default: all sources.
+        #[arg(long)]
+        source: Vec<String>,
         /// Max allowed diff score (0.0–1.0). Snapshots within threshold pass.
         #[arg(long, value_parser = parse_threshold)]
         threshold: Option<f64>,
@@ -72,6 +75,9 @@ pub enum Command {
         /// Open the report in the default browser
         #[arg(long)]
         open: bool,
+        /// Only report on the named config source(s); repeatable. Default: all.
+        #[arg(long)]
+        source: Vec<String>,
     },
 
     /// Promote current/ snapshots to reference/ without re-capturing
@@ -79,6 +85,9 @@ pub enum Command {
         /// Only approve snapshots whose name contains PATTERN (case-insensitive)
         #[arg(long, short = 'f')]
         filter: Option<String>,
+        /// Only approve the named config source(s); repeatable. Default: all.
+        #[arg(long)]
+        source: Vec<String>,
         /// Only approve new snapshots (no prior reference)
         #[arg(long)]
         new: bool,
@@ -101,6 +110,9 @@ pub enum Command {
         /// Skip confirmation prompt
         #[arg(long, short = 'y')]
         yes: bool,
+        /// Only prune the named config source(s); repeatable. Default: all.
+        #[arg(long)]
+        source: Vec<String>,
         #[command(flatten)]
         capture: CaptureConfig,
     },
@@ -113,6 +125,9 @@ pub enum Command {
         /// Only run snapshots whose name contains PATTERN (case-insensitive)
         #[arg(long, short = 'f')]
         filter: Option<String>,
+        /// Only run the named config source(s); repeatable. Default: all sources.
+        #[arg(long)]
+        source: Vec<String>,
         /// Print per-snapshot timing breakdown table
         #[arg(long)]
         timings: bool,

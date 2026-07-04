@@ -279,10 +279,6 @@ impl SourceFilter {
         })
     }
 
-    pub fn is_all(&self) -> bool {
-        self.names.is_empty()
-    }
-
     /// Whether a config source (by name) is selected — scopes discovery so
     /// unselected sources are never captured (no browser for a `pages` source).
     pub fn selects(&self, source_name: &str) -> bool {

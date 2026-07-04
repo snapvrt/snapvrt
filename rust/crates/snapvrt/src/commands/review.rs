@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 
+use crate::config::SourceFilter;
 use crate::report::html;
 use crate::store;
 
@@ -19,8 +20,8 @@ fn open_in_browser(path: &std::path::Path) -> Result<()> {
 }
 
 /// `snapvrt review` — generate static HTML report.
-pub fn review(open: bool) -> Result<()> {
-    let summary = html::generate()?;
+pub fn review(open: bool, source_filter: &SourceFilter) -> Result<()> {
+    let summary = html::generate(source_filter)?;
     println!("Report written to {summary}");
 
     if open {

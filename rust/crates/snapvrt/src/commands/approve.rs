@@ -1,5 +1,6 @@
 use anyhow::{Result, bail};
 
+use crate::config::SourceFilter;
 use crate::store;
 use crate::storybook::normalize_for_filter;
 
@@ -10,17 +11,29 @@ enum Kind {
     Pass,
 }
 
-pub fn approve(filter: Option<&str>, new_only: bool, failed_only: bool, all: bool) -> Result<()> {
+pub fn approve(
+    filter: Option<&str>,
+    new_only: bool,
+    failed_only: bool,
+    all: bool,
+    source_filter: &SourceFilter,
+) -> Result<()> {
     let (new_only, failed_only) = if all {
         (false, false)
     } else {
         (new_only, failed_only)
     };
-    let ids = store::list_current_ids();
-    if ids.is_empty() {
+    let all_ids = store::list_current_ids();
+    if all_ids.is_empty() {
         println!("Nothing to approve — current/ is empty.");
         return Ok(());
     }
+    // Restrict to the selected sources before classifying/pattern-matching; an
+    // empty result here falls through to the "no snapshots matched" message.
+    let ids: Vec<String> = all_ids
+        .into_iter()
+        .filter(|id| source_filter.matches_id(id))
+        .collect();
 
     // Classify each id.
     let classified: Vec<(&str, Kind)> = ids
