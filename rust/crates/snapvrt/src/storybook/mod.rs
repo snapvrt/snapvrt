@@ -9,6 +9,17 @@ pub(crate) fn normalize_for_filter(s: &str) -> String {
     s.to_lowercase().replace('_', " ")
 }
 
+/// Whether a stored snapshot name matches a `-f` pattern.
+///
+/// Shared by the commands that filter snapshots already on disk — `approve` and
+/// `review` — so one pattern selects the same set whichever reads it. The `.png`
+/// suffix is stripped from the pattern because the HTML report lists file names
+/// and they get pasted straight back into a filter.
+pub(crate) fn snapshot_name_matches(name: &str, pattern: &str) -> bool {
+    let pattern = pattern.strip_suffix(".png").unwrap_or(pattern);
+    normalize_for_filter(name).contains(&normalize_for_filter(pattern))
+}
+
 /// A discovered story ready for capture.
 #[derive(Debug, Clone)]
 pub struct Story {

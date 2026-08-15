@@ -104,8 +104,23 @@ Generate a static HTML report showing reference, current, and diff images side b
 snapvrt review [OPTIONS]
 
 Options:
-      --open  Open the report in the default browser
+      --open                  Open the report in the default browser
+  -f, --filter <PATTERN>      Only report on snapshots whose name contains PATTERN
+      --source <SOURCE>       Only report on the named config source(s); repeatable
 ```
+
+The report is built from what is on disk in `reference/`, `current/` and
+`difference/`, so an unfiltered report after a filtered run also shows rows left
+over from earlier runs. Pass the same `-f` you tested with to scope it:
+
+```sh
+snapvrt test -f checkout
+snapvrt review -f checkout --open
+```
+
+`snapvrt test --review` already does this for you — it passes the run's own
+filter to the report. A filtered report says so in its header, so it cannot be
+mistaken for a clean full run.
 
 ### `snapvrt prune`
 
@@ -149,6 +164,18 @@ snapvrt test                     # see what changed
 snapvrt review --open            # visual review in browser
 snapvrt approve --all            # accept changes
 snapvrt test                     # verify — should exit 0
+```
+
+### Working on one component
+
+Keep the same `-f` across all four steps, so each command sees the same set and
+the report can't show you stale rows from elsewhere in the suite:
+
+```sh
+snapvrt test -f checkout --review
+snapvrt review -f checkout --open
+snapvrt approve -f checkout
+snapvrt test -f checkout
 ```
 
 ## Environment Variables

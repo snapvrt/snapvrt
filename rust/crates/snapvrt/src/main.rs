@@ -38,9 +38,13 @@ async fn main() -> anyhow::Result<()> {
             let mut cmd = <cli::Cli as clap::CommandFactory>::command();
             clap_complete::generate(shell, &mut cmd, "snapvrt", &mut std::io::stdout());
         }
-        cli::Command::Review { open, source } => {
+        cli::Command::Review {
+            open,
+            filter,
+            source,
+        } => {
             let source_filter = config::resolve_source_filter(&source)?;
-            commands::review(open, &source_filter)?;
+            commands::review(open, filter.as_deref(), &source_filter)?;
         }
         cli::Command::Test {
             url,
@@ -62,7 +66,10 @@ async fn main() -> anyhow::Result<()> {
             let source_filter = config.source_filter.clone();
             let code = commands::test(config, filter.as_deref(), timings, prune).await?;
             if review {
-                commands::review(false, &source_filter)?;
+                // The run's filter carries into its report: `test -f x --review`
+                // would otherwise render every snapshot on disk, including
+                // current/ and difference/ left over from earlier runs.
+                commands::review(false, filter.as_deref(), &source_filter)?;
             }
             std::process::exit(code);
         }

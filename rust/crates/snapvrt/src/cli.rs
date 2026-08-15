@@ -76,6 +76,9 @@ pub enum Command {
         /// Open the report in the default browser
         #[arg(long)]
         open: bool,
+        /// Only report on snapshots whose name contains PATTERN (case-insensitive)
+        #[arg(long, short = 'f')]
+        filter: Option<String>,
         /// Only report on the named config source(s); repeatable. Default: all.
         #[arg(long)]
         source: Vec<String>,

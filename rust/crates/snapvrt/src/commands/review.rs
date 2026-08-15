@@ -20,8 +20,8 @@ fn open_in_browser(path: &std::path::Path) -> Result<()> {
 }
 
 /// `snapvrt review` — generate static HTML report.
-pub fn review(open: bool, source_filter: &SourceFilter) -> Result<()> {
-    let summary = html::generate(source_filter)?;
+pub fn review(open: bool, filter: Option<&str>, source_filter: &SourceFilter) -> Result<()> {
+    let summary = html::generate(source_filter, filter)?;
     println!("Report written to {summary}");
 
     if open {

@@ -2,7 +2,7 @@ use anyhow::{Result, bail};
 
 use crate::config::SourceFilter;
 use crate::store;
-use crate::storybook::normalize_for_filter;
+use crate::storybook::snapshot_name_matches;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Kind {
@@ -65,16 +65,11 @@ pub fn approve(
         })
         .collect();
 
-    // Filter by pattern (strip .png suffix — user may copy from HTML review page).
-    // Normalize spaces/underscores so both terminal output and raw names work.
     let filtered: Vec<(&str, Kind)> = kind_filtered
         .into_iter()
         .filter(|(id, _)| {
             filter
-                .map(|pat| {
-                    let pat = pat.strip_suffix(".png").unwrap_or(pat);
-                    normalize_for_filter(id).contains(&normalize_for_filter(pat))
-                })
+                .map(|pat| snapshot_name_matches(id, pat))
                 .unwrap_or(true)
         })
         .collect();
