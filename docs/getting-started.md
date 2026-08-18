@@ -8,13 +8,42 @@
 
 ## Install
 
+### From git (recommended)
+
 ```bash
-# Build from source
+cargo install --git https://github.com/snapvrt/snapvrt snapvrt
+```
+
+This puts the `snapvrt` binary in `~/.cargo/bin`. Make sure that directory is on your `PATH`:
+
+```bash
+export PATH="$HOME/.cargo/bin:$PATH"   # add to ~/.zshrc or ~/.bashrc
+```
+
+### From a local checkout
+
+```bash
+git clone https://github.com/snapvrt/snapvrt
+cd snapvrt
+cargo install --path rust/crates/snapvrt
+```
+
+Re-run the same command after pulling to upgrade; add `--force` if cargo reports the same version is already installed.
+
+### Build without installing
+
+```bash
 cd rust && cargo build --release
 # Binary at rust/target/release/snapvrt
 ```
 
-npm distribution is planned but not yet available.
+### Verify
+
+```bash
+snapvrt --version
+```
+
+crates.io and npm distribution are planned but not yet available.
 
 ## Initialize
 
