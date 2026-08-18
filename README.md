@@ -20,10 +20,10 @@ If you need Storybook 5-8, use loki.
 
 ## Quick Start
 
-> Not yet published.
+> Not yet published to crates.io or npm — install from git.
 
 ```bash
-npm install -D snapvrt     # or: cargo install snapvrt
+cargo install --git https://github.com/snapvrt/snapvrt snapvrt
 
 snapvrt init               # create .snapvrt/ config
 snapvrt update             # capture reference screenshots
