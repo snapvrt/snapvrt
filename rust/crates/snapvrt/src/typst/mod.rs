@@ -177,7 +177,9 @@ static ASSETS_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 /// and `data` dirs) and releases [`ASSETS_LOCK`] on drop.
 struct StagedAssets {
     staged: Vec<PathBuf>,
-    assets_dir: PathBuf,
+    /// Every virtual dir written into, e.g. `data/assets` and
+    /// `data/employee-signatures`. Their shared `data` parent is removed last.
+    dirs: Vec<PathBuf>,
     _lock: tokio::sync::MutexGuard<'static, ()>,
 }
 
@@ -188,59 +190,84 @@ impl Drop for StagedAssets {
         }
         // Remove the dirs we created, only while empty — a pre-existing
         // populated `data/assets` is left intact.
-        let _ = std::fs::remove_dir(&self.assets_dir);
-        if let Some(data_dir) = self.assets_dir.parent() {
+        for dir in &self.dirs {
+            let _ = std::fs::remove_dir(dir);
+        }
+        if let Some(data_dir) = self.dirs.first().and_then(|d| d.parent()) {
             let _ = std::fs::remove_dir(data_dir);
         }
     }
 }
 
-/// Mount a template's sibling `images/` directory at `<root>/data/assets/<file>`
+/// Mount a template's sibling asset directories under `<root>/data/`:
+/// `images/` at `data/assets/<file>` and `employee-signatures/` at
+/// `data/employee-signatures/<file>`
 /// for the duration of a render, mirroring the production print pipeline (and
 /// the LIMS `typst-cli-tool`, which injects the same files at the
 /// `/data/assets/<file>` virtual path). This lets a lab template reference assets
 /// the console way — `#image("/data/assets/<file>")` — and have snapvrt resolve
 /// them from the repo copy.
 ///
-/// Returns `None` when the template has no sibling `images/` (nothing to mount).
+/// Returns `None` when the template has neither directory (nothing to mount).
 /// Dotfiles and subdirectories are skipped, matching `load_local_assets`. Because
 /// `data/assets` is a single root-relative path shared by every template, staging
 /// is serialized behind [`ASSETS_LOCK`]; the returned guard holds the lock until
 /// the render finishes, then unstages.
 async fn stage_assets(root: &Path, template: &Path) -> Result<Option<StagedAssets>> {
-    let Some(images_dir) = template.parent().map(|p| p.join("images")) else {
-        return Ok(None);
-    };
-    let Ok(entries) = std::fs::read_dir(&images_dir) else {
-        return Ok(None); // no images/ dir — nothing to mount
-    };
+    // (sibling directory, virtual subdirectory under `data/`). `images/` is the
+    // console's asset convention; `employee-signatures/` carries the per-analyst
+    // signature images a protocol references as
+    // `/data/employee-signatures/<file>`. Both are injected by the production
+    // print pipeline and by `ltypst`, so a fixture holding either path shape
+    // renders the same way here.
+    const MOUNTS: &[(&str, &str)] = &[
+        ("images", "assets"),
+        ("employee-signatures", "employee-signatures"),
+    ];
 
     // Gather eligible files before taking the lock or touching the tree.
-    let mut sources: Vec<(PathBuf, String)> = Vec::new();
-    for entry in entries.flatten() {
-        let path = entry.path();
-        let Some(name) = path.file_name().and_then(|n| n.to_str()).map(str::to_owned) else {
-            continue;
+    let Some(parent) = template.parent() else {
+        return Ok(None);
+    };
+    let mut sources: Vec<(PathBuf, String, &str)> = Vec::new();
+    for (dir_name, virtual_name) in MOUNTS {
+        let Ok(entries) = std::fs::read_dir(parent.join(dir_name)) else {
+            continue; // no such dir — nothing to mount from it
         };
-        if name.starts_with('.') || !path.is_file() {
-            continue;
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Some(name) = path.file_name().and_then(|n| n.to_str()).map(str::to_owned) else {
+                continue;
+            };
+            if name.starts_with('.') || !path.is_file() {
+                continue;
+            }
+            sources.push((path, name, virtual_name));
         }
-        sources.push((path, name));
     }
     if sources.is_empty() {
         return Ok(None);
     }
 
     let lock = ASSETS_LOCK.lock().await;
-    let assets_dir = root.join("data").join("assets");
-    std::fs::create_dir_all(&assets_dir)
-        .with_context(|| format!("Failed to create {}", assets_dir.display()))?;
+    let data_dir = root.join("data");
 
     let mut staged = Vec::with_capacity(sources.len());
-    for (src, name) in sources {
-        let dest = assets_dir.join(&name);
+    let mut dirs: Vec<PathBuf> = Vec::new();
+    for (src, name, virtual_name) in sources {
+        let dir = data_dir.join(virtual_name);
+        if !dirs.contains(&dir) {
+            std::fs::create_dir_all(&dir)
+                .with_context(|| format!("Failed to create {}", dir.display()))?;
+            dirs.push(dir.clone());
+        }
+        let dest = dir.join(&name);
         std::fs::copy(&src, &dest).with_context(|| {
-            format!("Failed to stage asset {} → {}", src.display(), dest.display())
+            format!(
+                "Failed to stage asset {} → {}",
+                src.display(),
+                dest.display()
+            )
         })?;
         staged.push(dest);
     }
@@ -248,11 +275,12 @@ async fn stage_assets(root: &Path, template: &Path) -> Result<Option<StagedAsset
     debug!(
         template = %template.display(),
         count = staged.len(),
-        "mounted template images at data/assets/"
+        dirs = dirs.len(),
+        "mounted template assets under data/"
     );
     Ok(Some(StagedAssets {
         staged,
-        assets_dir,
+        dirs,
         _lock: lock,
     }))
 }
