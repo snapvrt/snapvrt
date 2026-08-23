@@ -200,8 +200,9 @@ impl Drop for StagedAssets {
 }
 
 /// Mount a template's sibling asset directories under `<root>/data/`:
-/// `images/` at `data/assets/<file>` and `employee-signatures/` at
-/// `data/employee-signatures/<file>`
+/// `images/` at `data/assets/<file>`, `employee-signatures/` at
+/// `data/employee-signatures/<file>`, and `request-images/` at
+/// `data/request-images/<file>`
 /// for the duration of a render, mirroring the production print pipeline (and
 /// the LIMS `typst-cli-tool`, which injects the same files at the
 /// `/data/assets/<file>` virtual path). This lets a lab template reference assets
@@ -217,12 +218,14 @@ async fn stage_assets(root: &Path, template: &Path) -> Result<Option<StagedAsset
     // (sibling directory, virtual subdirectory under `data/`). `images/` is the
     // console's asset convention; `employee-signatures/` carries the per-analyst
     // signature images a protocol references as
-    // `/data/employee-signatures/<file>`. Both are injected by the production
-    // print pipeline and by `ltypst`, so a fixture holding either path shape
-    // renders the same way here.
+    // `/data/employee-signatures/<file>`; `request-images/` carries the photos
+    // uploaded against a request, referenced as `/data/request-images/<file>`.
+    // All three are injected by the production print pipeline and by `ltypst`,
+    // so a fixture holding any of those path shapes renders the same way here.
     const MOUNTS: &[(&str, &str)] = &[
         ("images", "assets"),
         ("employee-signatures", "employee-signatures"),
+        ("request-images", "request-images"),
     ];
 
     // Gather eligible files before taking the lock or touching the tree.
